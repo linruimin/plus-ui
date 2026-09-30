@@ -1,0 +1,2029 @@
+{
+  "supply": [
+    {
+      "id": "vewXJXCxKk",
+      "name": "按货品分析",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "status": "已完成",
+          "groupBy": "sku",
+          "groupDesc": false,
+          "orderByColumn": "completionDate",
+          "isAsc": "desc"
+        },
+        "columns": {
+          "order": [
+            "id",
+            "productName",
+            "applicationNo",
+            "status",
+            "shipmentDate",
+            "shipmentTime",
+            "storageCluster",
+            "dispatchPoint",
+            "completionDate",
+            "quantity"
+          ],
+          "hidden": [
+            "orderId",
+            "deliveryType",
+            "deliveryId",
+            "itemCode",
+            "sku",
+            "liquidity",
+            "volume"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "sku",
+            "desc": false
+          }
+        ],
+        "sorts": []
+      },
+      "notes": [
+        "原视图中的出货总数尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewdN1o5Bo",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "groupBy": "none",
+          "groupDesc": false,
+          "status": "",
+          "orderByColumn": "completionDate",
+          "isAsc": "desc"
+        },
+        "columns": {
+          "order": [
+            "id",
+            "applicationNo",
+            "deliveryType",
+            "status",
+            "shipmentDate",
+            "shipmentTime",
+            "storageCluster",
+            "dispatchPoint",
+            "completionDate",
+            "productName",
+            "itemCode",
+            "sku",
+            "liquidity",
+            "quantity",
+            "volume",
+            "deliveryId",
+            "orderId"
+          ],
+          "hidden": [],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": []
+      },
+      "notes": [
+        "原视图中的Ozon详情链接、出货总数尚未接入当前页面。"
+      ]
+    }
+  ],
+  "purchase_order": [
+    {
+      "id": "vewRvbevm0",
+      "name": "货物",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "orderNo",
+            "productId",
+            "actualPaid",
+            "quantity",
+            "calc1",
+            "calc0",
+            "calc2",
+            "calc3",
+            "paidAt",
+            "channel",
+            "payStatus",
+            "remark",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "createdAt",
+            "desc": true
+          },
+          {
+            "field": "paidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的2.出货表尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewNoEp041",
+      "name": "按产品分组",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "orderNo",
+            "productId",
+            "actualPaid",
+            "quantity",
+            "calc1",
+            "paidAt",
+            "calc0",
+            "calc2",
+            "channel",
+            "payStatus",
+            "calc3",
+            "remark",
+            "shopId",
+            "createdAt"
+          ],
+          "hidden": [
+            "id",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "productId",
+            "desc": false
+          }
+        ],
+        "sorts": [
+          {
+            "field": "paidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的2.出货表尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewvyDt8EL",
+      "name": "俄2",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "shopId": "2"
+          }
+        },
+        "columns": {
+          "order": [
+            "orderNo",
+            "productId",
+            "actualPaid",
+            "quantity",
+            "calc1",
+            "calc0",
+            "calc2",
+            "calc3",
+            "paidAt",
+            "channel",
+            "payStatus",
+            "remark",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "createdAt",
+            "desc": true
+          },
+          {
+            "field": "paidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的2.出货表尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewdJPpghM",
+      "name": "自己",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "channel": "自己"
+          }
+        },
+        "columns": {
+          "order": [
+            "orderNo",
+            "productId",
+            "actualPaid",
+            "quantity",
+            "paidAt",
+            "channel",
+            "payStatus",
+            "calc1",
+            "calc2",
+            "calc0",
+            "calc3",
+            "remark",
+            "shopId",
+            "createdAt"
+          ],
+          "hidden": [
+            "id",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "paidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的2.出货表尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewKgza3MW",
+      "name": "林灼",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "channel": "林灼"
+          }
+        },
+        "columns": {
+          "order": [
+            "orderNo",
+            "productId",
+            "actualPaid",
+            "quantity",
+            "paidAt",
+            "channel",
+            "payStatus",
+            "calc1",
+            "calc2",
+            "calc0",
+            "calc3",
+            "remark",
+            "shopId",
+            "createdAt"
+          ],
+          "hidden": [
+            "id",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "paidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的2.出货表尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vew2RUFi1M",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "orderNo",
+            "productId",
+            "actualPaid",
+            "quantity",
+            "calc1",
+            "paidAt",
+            "calc0",
+            "calc2",
+            "channel",
+            "payStatus",
+            "calc3",
+            "remark",
+            "shopId",
+            "createdAt"
+          ],
+          "hidden": [
+            "id",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "paidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的2.出货表尚未接入当前页面。"
+      ]
+    }
+  ],
+  "shop": [
+    {
+      "id": "vewxeYYxDP",
+      "name": "表格",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "name",
+            "nameRu"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": []
+      }
+    }
+  ],
+  "logistics_provider": [
+    {
+      "id": "vewPrTxLUE",
+      "name": "表格",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "code",
+            "name",
+            "warehouse",
+            "warehouseFee",
+            "bank",
+            "system",
+            "customerCode"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": []
+      }
+    }
+  ],
+  "payment_receipt": [
+    {
+      "id": "vewiZqm7Oc",
+      "name": "表格",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "code",
+            "paidAt",
+            "amount",
+            "shopId",
+            "exchangeRate",
+            "remark"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "paidAt",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ],
+  "studio_receipt": [
+    {
+      "id": "vewvdOwXIT",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "orderNo",
+            "productName",
+            "quantity",
+            "boxCount",
+            "calc0",
+            "boxSpec",
+            "calc1",
+            "boxWeight",
+            "calc2",
+            "remark",
+            "receivedAt"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "receivedAt",
+            "desc": false
+          }
+        ],
+        "sorts": [
+          {
+            "field": "receivedAt",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ],
+  "logistics_fee": [
+    {
+      "id": "vew820AI3v",
+      "name": "表格",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "feeNo",
+            "feeType",
+            "shipmentIds",
+            "amount",
+            "calc0",
+            "calc1",
+            "remark",
+            "paidFlag",
+            "feeDate",
+            "calc2",
+            "calc3",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "feeType",
+            "desc": false
+          }
+        ],
+        "sorts": []
+      },
+      "notes": [
+        "原视图中的物流方式尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vew78aA8jp",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "feeNo",
+            "feeType",
+            "shipmentIds",
+            "amount",
+            "calc0",
+            "calc1",
+            "remark",
+            "paidFlag",
+            "feeDate",
+            "calc2",
+            "calc3",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": []
+      },
+      "notes": [
+        "原视图中的物流方式尚未接入当前页面。"
+      ]
+    }
+  ],
+  "other_fee": [
+    {
+      "id": "vewGjzjCwW",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "feeNo",
+            "feeType",
+            "amount",
+            "feeDate",
+            "remark",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "feeDate",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "vew4irInnh",
+      "name": "本土店租",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "feeType": "本土店租"
+          }
+        },
+        "columns": {
+          "order": [
+            "feeNo",
+            "feeType",
+            "amount",
+            "feeDate",
+            "remark",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "feeDate",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "vewV7jMlYb",
+      "name": "耗材",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "feeType": "耗材"
+          }
+        },
+        "columns": {
+          "order": [
+            "feeNo",
+            "feeType",
+            "amount",
+            "feeDate",
+            "remark",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "feeDate",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ],
+  "product": [
+    {
+      "id": "vewQs11fhW",
+      "name": "利润",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "productNo",
+            "name",
+            "backendPrice",
+            "calc8",
+            "calc1",
+            "calc2",
+            "calc5",
+            "calc6",
+            "calc3",
+            "calc4",
+            "calc7",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "sku",
+            "articleNo",
+            "sellerCompany",
+            "unitPerPack",
+            "buyerPay",
+            "receivedPrice",
+            "greenPrice",
+            "grayPrice",
+            "strikePrice",
+            "parentId",
+            "remark",
+            "createdAt",
+            "updatedAt",
+            "calc0"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": []
+      }
+    },
+    {
+      "id": "vewzVTzMFV",
+      "name": "俄1",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "shopId": "1"
+          }
+        },
+        "columns": {
+          "order": [
+            "productNo",
+            "name",
+            "backendPrice",
+            "calc8",
+            "calc1",
+            "calc2",
+            "calc5",
+            "calc6",
+            "calc3",
+            "calc4",
+            "calc7",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "sku",
+            "articleNo",
+            "sellerCompany",
+            "unitPerPack",
+            "buyerPay",
+            "receivedPrice",
+            "greenPrice",
+            "grayPrice",
+            "strikePrice",
+            "parentId",
+            "remark",
+            "createdAt",
+            "updatedAt",
+            "calc0"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": []
+      }
+    },
+    {
+      "id": "vewKBfAW2D",
+      "name": "俄2",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "shopId": "2"
+          }
+        },
+        "columns": {
+          "order": [
+            "productNo",
+            "name",
+            "backendPrice",
+            "calc8",
+            "calc1",
+            "calc2",
+            "calc5",
+            "calc6",
+            "calc3",
+            "calc4",
+            "calc7",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "sku",
+            "articleNo",
+            "sellerCompany",
+            "unitPerPack",
+            "buyerPay",
+            "receivedPrice",
+            "greenPrice",
+            "grayPrice",
+            "strikePrice",
+            "parentId",
+            "remark",
+            "createdAt",
+            "updatedAt",
+            "calc0"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "productNo",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "vewRLBxCWn",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "productNo",
+            "name",
+            "sellerCompany",
+            "unitPerPack",
+            "remark",
+            "articleNo",
+            "sku",
+            "greenPrice",
+            "grayPrice",
+            "strikePrice",
+            "backendPrice",
+            "buyerPay",
+            "receivedPrice",
+            "calc1",
+            "calc2",
+            "calc5",
+            "calc6",
+            "calc3",
+            "calc4",
+            "calc7",
+            "parentId",
+            "calc8",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt",
+            "calc0"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "productNo",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ],
+  "replenishment": [
+    {
+      "id": "vewGNMkRpr",
+      "name": "表格",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "replenishNo",
+            "productId",
+            "expectedDate",
+            "expectedQty",
+            "method",
+            "remark"
+          ],
+          "hidden": [
+            "id",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": []
+      }
+    }
+  ],
+  "monthly": [
+    {
+      "id": "vewRxAxyxF",
+      "name": "按月分析",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "groupBy": "month",
+          "groupDesc": true,
+          "orderByColumn": "totalProfit",
+          "isAsc": "desc"
+        },
+        "columns": {
+          "order": [
+            "recordName",
+            "localProductName",
+            "soldUnits",
+            "positiveAccrualTotalRub",
+            "finalTakeHomeRub",
+            "finalTakeHomeCny",
+            "unitTakeHomeCny",
+            "averageCost",
+            "unitMultiple",
+            "totalCost",
+            "totalProfit"
+          ],
+          "hidden": [
+            "reportMonth",
+            "sellerSku",
+            "ozonSku",
+            "productName",
+            "salesRecordCount",
+            "salesRevenueRub",
+            "discountPointsRub",
+            "partnerProgramsRub",
+            "otherAccrualsRub",
+            "netSalesIncomeRub",
+            "taxRub",
+            "importedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "reportMonth",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "totalProfit",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "vewAanxyW5",
+      "name": "按产品分析",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "groupBy": "sku",
+          "groupDesc": true,
+          "orderByColumn": "reportMonth",
+          "isAsc": "desc"
+        },
+        "columns": {
+          "order": [
+            "recordName",
+            "reportMonth",
+            "localProductName",
+            "soldUnits",
+            "finalTakeHomeCny",
+            "unitTakeHomeCny",
+            "averageCost",
+            "unitMultiple",
+            "totalCost",
+            "totalProfit"
+          ],
+          "hidden": [
+            "sellerSku",
+            "ozonSku",
+            "productName",
+            "salesRecordCount",
+            "positiveAccrualTotalRub",
+            "salesRevenueRub",
+            "discountPointsRub",
+            "partnerProgramsRub",
+            "otherAccrualsRub",
+            "netSalesIncomeRub",
+            "taxRub",
+            "finalTakeHomeRub",
+            "importedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "sellerSku",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "reportMonth",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "vewLZnRhCr",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "groupBy": "none",
+          "groupDesc": true,
+          "orderByColumn": "rowId",
+          "isAsc": "desc"
+        },
+        "columns": {
+          "order": [
+            "recordName",
+            "sellerSku",
+            "ozonSku",
+            "productName",
+            "soldUnits",
+            "salesRecordCount",
+            "positiveAccrualTotalRub",
+            "salesRevenueRub",
+            "discountPointsRub",
+            "otherAccrualsRub",
+            "netSalesIncomeRub",
+            "taxRub",
+            "partnerProgramsRub",
+            "finalTakeHomeCny",
+            "finalTakeHomeRub",
+            "reportMonth",
+            "averageCost",
+            "totalCost",
+            "totalProfit",
+            "localProductName",
+            "unitTakeHomeCny",
+            "unitMultiple"
+          ],
+          "hidden": [
+            "importedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": []
+      }
+    }
+  ],
+  "shipment": [
+    {
+      "id": "vewYiaI4AM",
+      "name": "成本",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "shopId": "1"
+          }
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "productName",
+            "calc14",
+            "calc8",
+            "calc17",
+            "calc9",
+            "calc18",
+            "calc19",
+            "calc1",
+            "calc3",
+            "calc4",
+            "calc11",
+            "calc5",
+            "calc6",
+            "calc7",
+            "backendPrice",
+            "perBoxQty",
+            "boxes",
+            "boxSpec",
+            "boxWeight",
+            "calc15",
+            "crossRateUsdPerKg",
+            "calc10",
+            "perBoxPackingFee",
+            "perBoxShopBuyFee",
+            "perBoxPickupFee",
+            "shopId",
+            "calc12",
+            "calc13"
+          ],
+          "hidden": [
+            "id",
+            "purchaseId",
+            "logisticsMethod",
+            "goodsStatus",
+            "warehouseInNo",
+            "shippingMark",
+            "shippedAt",
+            "warehouseInAt",
+            "createdAt",
+            "updatedAt",
+            "calc0",
+            "calc2",
+            "calc16",
+            "logisticsFeeIds",
+            "productNo",
+            "orderPaidAt",
+            "orderPackedQty"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "logisticsMethod",
+            "desc": false
+          },
+          {
+            "field": "shippedAt",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "orderPaidAt",
+            "desc": true
+          },
+          {
+            "field": "boxes",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "vewIINVOWG",
+      "name": "按物流方式",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "productName",
+            "purchaseId",
+            "warehouseInAt",
+            "shippingMark",
+            "perBoxQty",
+            "boxes",
+            "calc1",
+            "orderPackedQty",
+            "boxSpec",
+            "calc0",
+            "boxWeight",
+            "calc16",
+            "calc2",
+            "calc15",
+            "logisticsMethod",
+            "crossRateUsdPerKg",
+            "calc3",
+            "calc4",
+            "calc8",
+            "calc14",
+            "goodsStatus",
+            "shippedAt",
+            "orderPaidAt",
+            "logisticsFeeIds",
+            "calc10",
+            "calc11",
+            "productNo",
+            "calc17",
+            "backendPrice",
+            "calc9",
+            "calc19",
+            "perBoxPickupFee",
+            "calc7",
+            "perBoxPackingFee",
+            "calc5",
+            "perBoxShopBuyFee",
+            "calc6",
+            "calc18",
+            "shopId",
+            "calc12",
+            "calc13"
+          ],
+          "hidden": [
+            "id",
+            "warehouseInNo",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "logisticsMethod",
+            "desc": false
+          },
+          {
+            "field": "shippedAt",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "orderPaidAt",
+            "desc": true
+          },
+          {
+            "field": "boxes",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的交货申请单号尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewRSvvW6u",
+      "name": "跨境店",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "logisticsMethod": "跨境店"
+          }
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "productName",
+            "perBoxQty",
+            "boxes",
+            "calc1",
+            "boxSpec",
+            "calc0",
+            "boxWeight",
+            "calc16",
+            "calc2",
+            "calc15",
+            "logisticsMethod",
+            "crossRateUsdPerKg",
+            "calc4",
+            "orderPaidAt",
+            "purchaseId",
+            "shippingMark",
+            "goodsStatus",
+            "logisticsFeeIds",
+            "shippedAt",
+            "orderPackedQty",
+            "calc14",
+            "calc8",
+            "calc10",
+            "calc11",
+            "warehouseInAt",
+            "productNo",
+            "calc17",
+            "backendPrice",
+            "calc9",
+            "calc19",
+            "perBoxPickupFee",
+            "calc7",
+            "perBoxPackingFee",
+            "calc5",
+            "perBoxShopBuyFee",
+            "calc6",
+            "calc3",
+            "calc18",
+            "shopId",
+            "calc12",
+            "calc13"
+          ],
+          "hidden": [
+            "id",
+            "warehouseInNo",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "shippedAt",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "orderPaidAt",
+            "desc": true
+          },
+          {
+            "field": "boxes",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的交货申请单号尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewFkQ94s9",
+      "name": "按产品",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "logisticsMethod",
+            "calc14",
+            "productName",
+            "purchaseId",
+            "perBoxQty",
+            "boxes",
+            "calc1",
+            "orderPackedQty",
+            "boxSpec",
+            "calc0",
+            "boxWeight",
+            "calc16",
+            "calc2",
+            "calc15",
+            "crossRateUsdPerKg",
+            "calc4",
+            "shippingMark",
+            "goodsStatus",
+            "shippedAt",
+            "orderPaidAt",
+            "logisticsFeeIds",
+            "calc8",
+            "calc10",
+            "calc11",
+            "calc3",
+            "calc13",
+            "calc12",
+            "warehouseInAt",
+            "productNo",
+            "calc17",
+            "backendPrice",
+            "calc9",
+            "calc19",
+            "perBoxPickupFee",
+            "calc7",
+            "perBoxPackingFee",
+            "calc5",
+            "perBoxShopBuyFee",
+            "calc6",
+            "calc18",
+            "shopId"
+          ],
+          "hidden": [
+            "id",
+            "warehouseInNo",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "productNo",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "shippedAt",
+            "desc": true
+          },
+          {
+            "field": "orderPaidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的交货申请单号尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewa2poIuR",
+      "name": "立德",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "logisticsMethod": "立德"
+          }
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "productName",
+            "perBoxQty",
+            "boxes",
+            "calc1",
+            "boxSpec",
+            "calc0",
+            "boxWeight",
+            "calc16",
+            "calc2",
+            "calc15",
+            "crossRateUsdPerKg",
+            "calc4",
+            "shippingMark",
+            "goodsStatus",
+            "logisticsFeeIds",
+            "shippedAt",
+            "purchaseId",
+            "orderPackedQty",
+            "calc8",
+            "calc14",
+            "calc10",
+            "calc11",
+            "warehouseInAt",
+            "productNo",
+            "calc17",
+            "backendPrice",
+            "calc9",
+            "calc19",
+            "perBoxPickupFee",
+            "calc7",
+            "perBoxPackingFee",
+            "calc5",
+            "perBoxShopBuyFee",
+            "calc6",
+            "calc3",
+            "calc18",
+            "shopId",
+            "calc12",
+            "calc13"
+          ],
+          "hidden": [
+            "id",
+            "logisticsMethod",
+            "warehouseInNo",
+            "createdAt",
+            "updatedAt",
+            "orderPaidAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "shippedAt",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "orderPaidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的交货申请单号尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewIJvZL4w",
+      "name": "超光速",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "logisticsMethod": "超光速"
+          }
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "productName",
+            "perBoxQty",
+            "boxes",
+            "calc1",
+            "boxSpec",
+            "calc0",
+            "boxWeight",
+            "calc16",
+            "calc2",
+            "calc15",
+            "crossRateUsdPerKg",
+            "calc4",
+            "orderPaidAt",
+            "shippingMark",
+            "goodsStatus",
+            "logisticsFeeIds",
+            "shippedAt",
+            "purchaseId",
+            "orderPackedQty",
+            "calc8",
+            "calc14",
+            "calc10",
+            "calc11",
+            "warehouseInAt",
+            "productNo",
+            "calc17",
+            "backendPrice",
+            "calc9",
+            "calc19",
+            "perBoxPickupFee",
+            "calc7",
+            "perBoxPackingFee",
+            "calc5",
+            "perBoxShopBuyFee",
+            "calc6",
+            "calc3",
+            "calc18",
+            "shopId",
+            "calc12",
+            "calc13"
+          ],
+          "hidden": [
+            "id",
+            "logisticsMethod",
+            "warehouseInNo",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "orderPaidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的交货申请单号尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewbRzTEJw",
+      "name": "贝加尔",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "logisticsMethod": "贝加尔"
+          }
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "productName",
+            "perBoxQty",
+            "boxes",
+            "calc1",
+            "boxSpec",
+            "calc0",
+            "boxWeight",
+            "calc16",
+            "calc2",
+            "calc15",
+            "crossRateUsdPerKg",
+            "calc4",
+            "orderPaidAt",
+            "shippingMark",
+            "goodsStatus",
+            "logisticsFeeIds",
+            "shippedAt",
+            "purchaseId",
+            "orderPackedQty",
+            "calc8",
+            "calc14",
+            "calc10",
+            "calc11",
+            "warehouseInAt",
+            "productNo",
+            "calc17",
+            "backendPrice",
+            "calc9",
+            "calc19",
+            "perBoxPickupFee",
+            "calc7",
+            "perBoxPackingFee",
+            "calc5",
+            "perBoxShopBuyFee",
+            "calc6",
+            "calc3",
+            "calc18",
+            "shopId",
+            "calc12",
+            "calc13"
+          ],
+          "hidden": [
+            "id",
+            "logisticsMethod",
+            "warehouseInNo",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "orderPaidAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的交货申请单号尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vew1itREvI",
+      "name": "边境带货",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {
+            "logisticsMethod": "边境带货"
+          }
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "productName",
+            "perBoxQty",
+            "boxes",
+            "calc1",
+            "boxSpec",
+            "calc0",
+            "boxWeight",
+            "calc16",
+            "calc2",
+            "calc15",
+            "shippingMark",
+            "goodsStatus",
+            "logisticsFeeIds",
+            "shippedAt",
+            "purchaseId",
+            "orderPackedQty",
+            "calc8",
+            "calc14",
+            "calc10",
+            "calc11",
+            "warehouseInAt",
+            "productNo",
+            "calc17",
+            "backendPrice",
+            "calc9",
+            "calc19",
+            "perBoxPickupFee",
+            "calc7",
+            "perBoxPackingFee",
+            "calc5",
+            "perBoxShopBuyFee",
+            "calc6",
+            "calc3",
+            "calc18",
+            "shopId",
+            "calc12",
+            "calc13"
+          ],
+          "hidden": [
+            "id",
+            "logisticsMethod",
+            "warehouseInNo",
+            "crossRateUsdPerKg",
+            "createdAt",
+            "updatedAt",
+            "calc4",
+            "orderPaidAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "shippedAt",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "orderPaidAt",
+            "desc": true
+          },
+          {
+            "field": "boxes",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的交货申请单号尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vewJwRwyHF",
+      "name": "唛",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "productName",
+            "shippingMark",
+            "warehouseInAt",
+            "perBoxQty",
+            "boxes",
+            "calc1",
+            "boxSpec",
+            "goodsStatus",
+            "shippedAt",
+            "calc10",
+            "calc11",
+            "productNo",
+            "calc17",
+            "backendPrice",
+            "calc9",
+            "calc19",
+            "perBoxPickupFee",
+            "calc7",
+            "perBoxPackingFee",
+            "calc5",
+            "perBoxShopBuyFee",
+            "calc6",
+            "calc3",
+            "calc18",
+            "shopId",
+            "calc12",
+            "calc13"
+          ],
+          "hidden": [
+            "id",
+            "purchaseId",
+            "logisticsMethod",
+            "boxWeight",
+            "warehouseInNo",
+            "crossRateUsdPerKg",
+            "createdAt",
+            "updatedAt",
+            "calc0",
+            "calc2",
+            "calc4",
+            "calc8",
+            "calc14",
+            "calc15",
+            "calc16",
+            "logisticsFeeIds",
+            "orderPaidAt",
+            "orderPackedQty"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "logisticsMethod",
+            "desc": false
+          },
+          {
+            "field": "shippedAt",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "orderPaidAt",
+            "desc": true
+          },
+          {
+            "field": "boxes",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的交货申请单号尚未接入当前页面。"
+      ]
+    },
+    {
+      "id": "vew0h4hoZ2",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "shipmentNo",
+            "purchaseId",
+            "productName",
+            "perBoxQty",
+            "boxes",
+            "calc1",
+            "orderPackedQty",
+            "boxSpec",
+            "calc0",
+            "boxWeight",
+            "calc16",
+            "calc2",
+            "calc15",
+            "logisticsMethod",
+            "crossRateUsdPerKg",
+            "calc4",
+            "shippingMark",
+            "goodsStatus",
+            "shippedAt",
+            "orderPaidAt",
+            "logisticsFeeIds",
+            "calc8",
+            "calc14",
+            "calc10",
+            "calc11",
+            "warehouseInAt",
+            "productNo",
+            "calc17",
+            "backendPrice",
+            "calc9",
+            "calc19",
+            "perBoxPickupFee",
+            "calc7",
+            "perBoxPackingFee",
+            "calc5",
+            "perBoxShopBuyFee",
+            "calc6",
+            "calc3",
+            "calc18",
+            "shopId",
+            "calc12",
+            "calc13"
+          ],
+          "hidden": [
+            "id",
+            "warehouseInNo",
+            "createdAt",
+            "updatedAt"
+          ],
+          "fixed": {}
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "shippedAt",
+            "desc": true
+          }
+        ]
+      },
+      "notes": [
+        "原视图中的交货申请单号尚未接入当前页面。"
+      ]
+    }
+  ],
+  "attachment": [
+    {
+      "id": "all",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {},
+        "groups": [],
+        "sorts": [
+          {
+            "field": "id",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ],
+  "accruals": [
+    {
+      "id": "all",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "orderByColumn": "accrualDate",
+          "isAsc": "desc"
+        },
+        "columns": {},
+        "dateRange": []
+      }
+    }
+  ]
+}

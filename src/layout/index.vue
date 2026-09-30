@@ -22,10 +22,11 @@ import { AppMain, Navbar, Settings, TagsView } from './components';
 import SideBar from './components/Sidebar/index.vue';
 
 const settingsStore = useSettingsStore();
+const route = useRoute();
 const theme = computed(() => settingsStore.theme);
 const sidebar = computed(() => useAppStore().sidebar);
 const device = computed(() => useAppStore().device);
-const needTagsView = computed(() => settingsStore.tagsView);
+const needTagsView = computed(() => settingsStore.tagsView && route.meta.hideTagsView !== true);
 const fixedHeader = computed(() => settingsStore.fixedHeader);
 const layout = computed(() => settingsStore.navType);
 

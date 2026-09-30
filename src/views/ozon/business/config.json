@@ -1,0 +1,2660 @@
+{
+  "product": {
+    "title": "产品",
+    "endpoint": "product",
+    "fields": [
+      {
+        "prop": "sku",
+        "label": "sku",
+        "sql": "sku",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "name",
+        "label": "品名",
+        "sql": "name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 255
+      },
+      {
+        "prop": "articleNo",
+        "label": "货号",
+        "sql": "article_no",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "sellerCompany",
+        "label": "卖家公司名",
+        "sql": "seller_company",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "unitPerPack",
+        "label": "每包数量",
+        "sql": "unit_per_pack",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true,
+        "precision": 2,
+        "default": 1
+      },
+      {
+        "prop": "backendPrice",
+        "label": "后台售价",
+        "sql": "backend_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "buyerPay",
+        "label": "买家支付",
+        "sql": "buyer_pay",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "receivedPrice",
+        "label": "到手",
+        "sql": "received_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "greenPrice",
+        "label": "绿标价",
+        "sql": "green_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "grayPrice",
+        "label": "灰标价",
+        "sql": "gray_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "strikePrice",
+        "label": "划线价",
+        "sql": "strike_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "parentId",
+        "label": "父产品",
+        "sql": "parent_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "product"
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "productNo",
+        "label": "产品编号",
+        "sql": "product_no",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "sku",
+        "label": "sku",
+        "sql": "sku",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "name",
+        "label": "品名",
+        "sql": "name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 255
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "货品图片",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "articleNo",
+        "label": "货号",
+        "sql": "article_no",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "sellerCompany",
+        "label": "卖家公司名",
+        "sql": "seller_company",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "unitPerPack",
+        "label": "每包数量",
+        "sql": "unit_per_pack",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true,
+        "precision": 2,
+        "default": 1
+      },
+      {
+        "prop": "backendPrice",
+        "label": "后台售价",
+        "sql": "backend_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "buyerPay",
+        "label": "买家支付",
+        "sql": "buyer_pay",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "receivedPrice",
+        "label": "到手",
+        "sql": "received_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "greenPrice",
+        "label": "绿标价",
+        "sql": "green_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "grayPrice",
+        "label": "灰标价",
+        "sql": "gray_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "strikePrice",
+        "label": "划线价",
+        "sql": "strike_price",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "parentId",
+        "label": "父产品",
+        "sql": "parent_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "product"
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "calc0",
+        "label": "进货装箱总数",
+        "sql": "v.`进货装箱总数`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc1",
+        "label": "出货总数",
+        "sql": "v.`出货总数`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc2",
+        "label": "总合计成本",
+        "sql": "v.`总合计成本`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc3",
+        "label": "后台售价总值",
+        "sql": "v.`后台售价总值`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc4",
+        "label": "预计到手总值",
+        "sql": "v.`预计到手总值`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc5",
+        "label": "预计到手人民币",
+        "sql": "v.`预计到手人民币`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc6",
+        "label": "预计利润",
+        "sql": "v.`预计利润`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc7",
+        "label": "预计倍数",
+        "sql": "v.`预计倍数`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc8",
+        "label": "平均合计成本",
+        "sql": "v.`平均合计成本`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      }
+    ]
+  },
+  "replenishment": {
+    "title": "补货",
+    "endpoint": "replenishment",
+    "fields": [
+      {
+        "prop": "productId",
+        "label": "产品",
+        "sql": "product_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true,
+        "reference": "product"
+      },
+      {
+        "prop": "expectedDate",
+        "label": "预计补货时间",
+        "sql": "expected_date",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "expectedQty",
+        "label": "预计补货数量",
+        "sql": "expected_qty",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "method",
+        "label": "方式",
+        "sql": "method",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "跨境",
+          "立德"
+        ]
+      },
+      {
+        "prop": "remark",
+        "label": "备注",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "replenishNo",
+        "label": "编号",
+        "sql": "replenish_no",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "productId",
+        "label": "产品",
+        "sql": "product_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true,
+        "reference": "product"
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "产品图片",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "expectedDate",
+        "label": "预计补货时间",
+        "sql": "expected_date",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "expectedQty",
+        "label": "预计补货数量",
+        "sql": "expected_qty",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "method",
+        "label": "方式",
+        "sql": "method",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "跨境",
+          "立德"
+        ]
+      },
+      {
+        "prop": "remark",
+        "label": "备注",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      }
+    ]
+  },
+  "purchase_order": {
+    "title": "进货",
+    "endpoint": "purchase-order",
+    "fields": [
+      {
+        "prop": "orderNo",
+        "label": "订单编号",
+        "sql": "order_no",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "productId",
+        "label": "产品",
+        "sql": "product_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true,
+        "reference": "product"
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "actualPaid",
+        "label": "实付款(元)",
+        "sql": "actual_paid",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "quantity",
+        "label": "数量",
+        "sql": "quantity",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "payStatus",
+        "label": "付款情况",
+        "sql": "pay_status",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 16,
+        "options": [
+          "已付",
+          "未付"
+        ],
+        "default": "已付"
+      },
+      {
+        "prop": "channel",
+        "label": "购买",
+        "sql": "channel",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 16,
+        "options": [
+          "自己",
+          "林灼"
+        ]
+      },
+      {
+        "prop": "paidAt",
+        "label": "订单付款时间",
+        "sql": "paid_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "orderNo",
+        "label": "订单编号",
+        "sql": "order_no",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "productId",
+        "label": "产品",
+        "sql": "product_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true,
+        "reference": "product"
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "货品图片",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "actualPaid",
+        "label": "实付款(元)",
+        "sql": "actual_paid",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "quantity",
+        "label": "数量",
+        "sql": "quantity",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "payStatus",
+        "label": "付款情况",
+        "sql": "pay_status",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 16,
+        "options": [
+          "已付",
+          "未付"
+        ],
+        "default": "已付"
+      },
+      {
+        "prop": "channel",
+        "label": "购买",
+        "sql": "channel",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 16,
+        "options": [
+          "自己",
+          "林灼"
+        ]
+      },
+      {
+        "prop": "paidAt",
+        "label": "订单付款时间",
+        "sql": "paid_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "calc0",
+        "label": "每包数量",
+        "sql": "v.`每包数量`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc1",
+        "label": "单个成本",
+        "sql": "v.`单个成本`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc2",
+        "label": "装箱总数",
+        "sql": "v.`装箱总数`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc3",
+        "label": "每包成本",
+        "sql": "v.`每包成本`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      }
+    ]
+  },
+  "shipment": {
+    "title": "出货",
+    "endpoint": "shipment",
+    "fields": [
+      {
+        "prop": "purchaseId",
+        "label": "进货订单",
+        "sql": "purchase_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true,
+        "reference": "purchase_order"
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "logisticsMethod",
+        "label": "物流方式",
+        "sql": "logistics_method",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "立德",
+          "超光速",
+          "贝加尔",
+          "跨境店",
+          "边境带货"
+        ]
+      },
+      {
+        "prop": "goodsStatus",
+        "label": "货物情况",
+        "sql": "goods_status",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "商家仓库",
+          "林灼工作室",
+          "工作室仓库",
+          "国内运输",
+          "物流仓库",
+          "跨境运输",
+          "俄罗斯仓库",
+          "ozon官方仓"
+        ]
+      },
+      {
+        "prop": "boxSpec",
+        "label": "箱规",
+        "sql": "box_spec",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "boxes",
+        "label": "箱数",
+        "sql": "boxes",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "perBoxQty",
+        "label": "每箱数量",
+        "sql": "per_box_qty",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "boxWeight",
+        "label": "单箱重/kg",
+        "sql": "box_weight",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 3
+      },
+      {
+        "prop": "warehouseInNo",
+        "label": "入仓单号",
+        "sql": "warehouse_in_no",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "shippingMark",
+        "label": "跨境物流唛",
+        "sql": "shipping_mark",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "perBoxPackingFee",
+        "label": "单箱打包费用",
+        "sql": "per_box_packing_fee",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "perBoxShopBuyFee",
+        "label": "单箱店铺费用+购买费用",
+        "sql": "per_box_shop_buy_fee",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "perBoxPickupFee",
+        "label": "单箱取货送仓费用",
+        "sql": "per_box_pickup_fee",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "crossRateUsdPerKg",
+        "label": "跨境运输费用/美元/kg",
+        "sql": "cross_rate_usd_per_kg",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 4
+      },
+      {
+        "prop": "shippedAt",
+        "label": "出货时间",
+        "sql": "shipped_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "warehouseInAt",
+        "label": "入仓时间",
+        "sql": "warehouse_in_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "logisticsFeeIds",
+        "label": "物流费用",
+        "reference": "logistics_fee",
+        "multiple": true,
+        "width": 220
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "shipmentNo",
+        "label": "出货编号",
+        "sql": "shipment_no",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "purchaseId",
+        "label": "进货订单",
+        "sql": "purchase_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true,
+        "reference": "purchase_order"
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "logisticsMethod",
+        "label": "物流方式",
+        "sql": "logistics_method",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "立德",
+          "超光速",
+          "贝加尔",
+          "跨境店",
+          "边境带货"
+        ]
+      },
+      {
+        "prop": "goodsStatus",
+        "label": "货物情况",
+        "sql": "goods_status",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "商家仓库",
+          "林灼工作室",
+          "工作室仓库",
+          "国内运输",
+          "物流仓库",
+          "跨境运输",
+          "俄罗斯仓库",
+          "ozon官方仓"
+        ]
+      },
+      {
+        "prop": "boxSpec",
+        "label": "箱规",
+        "sql": "box_spec",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "boxes",
+        "label": "箱数",
+        "sql": "boxes",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "perBoxQty",
+        "label": "每箱数量",
+        "sql": "per_box_qty",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "boxWeight",
+        "label": "单箱重/kg",
+        "sql": "box_weight",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 3
+      },
+      {
+        "prop": "warehouseInNo",
+        "label": "入仓单号",
+        "sql": "warehouse_in_no",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "shippingMark",
+        "label": "跨境物流唛",
+        "sql": "shipping_mark",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "perBoxPackingFee",
+        "label": "单箱打包费用",
+        "sql": "per_box_packing_fee",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "perBoxShopBuyFee",
+        "label": "单箱店铺费用+购买费用",
+        "sql": "per_box_shop_buy_fee",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "perBoxPickupFee",
+        "label": "单箱取货送仓费用",
+        "sql": "per_box_pickup_fee",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "crossRateUsdPerKg",
+        "label": "跨境运输费用/美元/kg",
+        "sql": "cross_rate_usd_per_kg",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 4
+      },
+      {
+        "prop": "shippedAt",
+        "label": "出货时间",
+        "sql": "shipped_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "warehouseInAt",
+        "label": "入仓时间",
+        "sql": "warehouse_in_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "calc0",
+        "label": "单箱体积/m3",
+        "sql": "v.`单箱体积/m3`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc1",
+        "label": "总数",
+        "sql": "v.`总数`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc2",
+        "label": "总箱重/kg",
+        "sql": "v.`总箱重/kg`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc3",
+        "label": "单箱跨境运输费用",
+        "sql": "v.`单箱跨境运输费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc4",
+        "label": "单个跨境运输费用",
+        "sql": "v.`单个跨境运输费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc5",
+        "label": "单个打包费用",
+        "sql": "v.`单个打包费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc6",
+        "label": "单个店铺费用+购买费用",
+        "sql": "v.`单个店铺费用+购买费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc7",
+        "label": "单个取货送仓费用",
+        "sql": "v.`单个取货送仓费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc8",
+        "label": "每包成本",
+        "sql": "v.`每包成本`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc9",
+        "label": "预计到手人民币",
+        "sql": "v.`预计到手人民币`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc10",
+        "label": "单体积入仓送仓费用",
+        "sql": "v.`单体积入仓送仓费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc11",
+        "label": "单箱入仓送仓费用",
+        "sql": "v.`单箱入仓送仓费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc12",
+        "label": "单个入仓送仓费用",
+        "sql": "v.`单个入仓送仓费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc13",
+        "label": "单箱跨境运输+入仓送仓费用",
+        "sql": "v.`单箱跨境运输+入仓送仓费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc14",
+        "label": "合计成本",
+        "sql": "v.`合计成本`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc15",
+        "label": "密度",
+        "sql": "v.`密度`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc16",
+        "label": "总箱体积/m3",
+        "sql": "v.`总箱体积/m3`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc17",
+        "label": "总合计成本",
+        "sql": "v.`总合计成本`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc18",
+        "label": "预计利润",
+        "sql": "v.`预计利润`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc19",
+        "label": "预计倍数",
+        "sql": "v.`预计倍数`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "logisticsFeeIds",
+        "label": "物流费用",
+        "reference": "logistics_fee",
+        "multiple": true,
+        "width": 220
+      },
+      {
+        "prop": "productNo",
+        "label": "产品编号",
+        "width": 87,
+        "numeric": true,
+        "readonly": true
+      },
+      {
+        "prop": "productName",
+        "label": "货品名称",
+        "width": 120,
+        "numeric": false,
+        "readonly": true
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "货品图片",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "orderPaidAt",
+        "label": "订单时间",
+        "width": 120,
+        "numeric": false,
+        "readonly": true,
+        "type": "date"
+      },
+      {
+        "prop": "backendPrice",
+        "label": "后台售价",
+        "width": 87,
+        "numeric": true,
+        "readonly": true
+      },
+      {
+        "prop": "orderPackedQty",
+        "label": "订单装箱总数",
+        "width": 87,
+        "numeric": true,
+        "readonly": true
+      }
+    ]
+  },
+  "logistics_fee": {
+    "title": "物流费用",
+    "endpoint": "logistics-fee",
+    "fields": [
+      {
+        "prop": "feeType",
+        "label": "费用类型",
+        "sql": "fee_type",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "国内运输",
+          "跨境运输",
+          "入仓送仓",
+          "跨境取货送仓",
+          "边境带货"
+        ]
+      },
+      {
+        "prop": "amount",
+        "label": "费用",
+        "sql": "amount",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "paidFlag",
+        "label": "是否已付",
+        "sql": "paid_flag",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 8,
+        "options": [
+          "已付",
+          "未付"
+        ],
+        "default": "已付"
+      },
+      {
+        "prop": "feeDate",
+        "label": "费用时间",
+        "sql": "fee_date",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "remark",
+        "label": "费用备注",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "shipmentIds",
+        "label": "出货订单",
+        "reference": "shipment",
+        "multiple": true,
+        "width": 220
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "feeNo",
+        "label": "物流费用编号",
+        "sql": "fee_no",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "feeType",
+        "label": "费用类型",
+        "sql": "fee_type",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "国内运输",
+          "跨境运输",
+          "入仓送仓",
+          "跨境取货送仓",
+          "边境带货"
+        ]
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "附件",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "amount",
+        "label": "费用",
+        "sql": "amount",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "paidFlag",
+        "label": "是否已付",
+        "sql": "paid_flag",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 8,
+        "options": [
+          "已付",
+          "未付"
+        ],
+        "default": "已付"
+      },
+      {
+        "prop": "feeDate",
+        "label": "费用时间",
+        "sql": "fee_date",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "remark",
+        "label": "费用备注",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "calc0",
+        "label": "总重量",
+        "sql": "v.`总重量`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc1",
+        "label": "总体积",
+        "sql": "v.`总体积`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc2",
+        "label": "单体积费用",
+        "sql": "v.`单体积费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc3",
+        "label": "单重量费用",
+        "sql": "v.`单重量费用`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "shipmentIds",
+        "label": "出货订单",
+        "reference": "shipment",
+        "multiple": true,
+        "width": 220
+      }
+    ]
+  },
+  "other_fee": {
+    "title": "其他费用",
+    "endpoint": "other-fee",
+    "fields": [
+      {
+        "prop": "feeType",
+        "label": "费用类型",
+        "sql": "fee_type",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "本土店租",
+          "跨境店",
+          "质量文件",
+          "耗材",
+          "其他"
+        ]
+      },
+      {
+        "prop": "amount",
+        "label": "费用",
+        "sql": "amount",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "feeDate",
+        "label": "费用时间",
+        "sql": "fee_date",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "feeNo",
+        "label": "编号",
+        "sql": "fee_no",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "feeType",
+        "label": "费用类型",
+        "sql": "fee_type",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 32,
+        "options": [
+          "本土店租",
+          "跨境店",
+          "质量文件",
+          "耗材",
+          "其他"
+        ]
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "附件",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "amount",
+        "label": "费用",
+        "sql": "amount",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "feeDate",
+        "label": "费用时间",
+        "sql": "fee_date",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      }
+    ]
+  },
+  "logistics_provider": {
+    "title": "物流商资料",
+    "endpoint": "logistics-provider",
+    "fields": [
+      {
+        "prop": "name",
+        "label": "名称",
+        "sql": "name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "warehouse",
+        "label": "仓库",
+        "sql": "warehouse",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "warehouseFee",
+        "label": "入仓费用",
+        "sql": "warehouse_fee",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "bank",
+        "label": "银行",
+        "sql": "bank",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "system",
+        "label": "系统",
+        "sql": "system",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "customerCode",
+        "label": "客户代码",
+        "sql": "customer_code",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "code",
+        "label": "编号",
+        "sql": "code",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "name",
+        "label": "名称",
+        "sql": "name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "跨境运费",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "warehouse",
+        "label": "仓库",
+        "sql": "warehouse",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "warehouseFee",
+        "label": "入仓费用",
+        "sql": "warehouse_fee",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "bank",
+        "label": "银行",
+        "sql": "bank",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "system",
+        "label": "系统",
+        "sql": "system",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "customerCode",
+        "label": "客户代码",
+        "sql": "customer_code",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      }
+    ]
+  },
+  "studio_receipt": {
+    "title": "工作室收货",
+    "endpoint": "studio-receipt",
+    "fields": [
+      {
+        "prop": "orderNo",
+        "label": "订单编号",
+        "sql": "order_no",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "quantity",
+        "label": "数量",
+        "sql": "quantity",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "boxCount",
+        "label": "收货箱数",
+        "sql": "box_count",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "boxSpec",
+        "label": "箱规",
+        "sql": "box_spec",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "boxWeight",
+        "label": "箱重/kg",
+        "sql": "box_weight",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 3
+      },
+      {
+        "prop": "receivedAt",
+        "label": "收货时间",
+        "sql": "received_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "orderNo",
+        "label": "订单编号",
+        "sql": "order_no",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "quantity",
+        "label": "数量",
+        "sql": "quantity",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "boxCount",
+        "label": "收货箱数",
+        "sql": "box_count",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "boxSpec",
+        "label": "箱规",
+        "sql": "box_spec",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 64
+      },
+      {
+        "prop": "boxWeight",
+        "label": "箱重/kg",
+        "sql": "box_weight",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 3
+      },
+      {
+        "prop": "receivedAt",
+        "label": "收货时间",
+        "sql": "received_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "calc0",
+        "label": "收货每箱数量",
+        "sql": "v.`收货每箱数量`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc1",
+        "label": "箱体积/m3",
+        "sql": "v.`箱体积/m3`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "calc2",
+        "label": "总箱重/kg",
+        "sql": "v.`总箱重/kg`",
+        "width": 160,
+        "numeric": true,
+        "type": "number",
+        "readonly": true
+      },
+      {
+        "prop": "productName",
+        "label": "品名",
+        "width": 120,
+        "numeric": false,
+        "readonly": true
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "货品图片",
+        "width": 124,
+        "attachment": true
+      }
+    ]
+  },
+  "payment_receipt": {
+    "title": "回款",
+    "endpoint": "payment-receipt",
+    "fields": [
+      {
+        "prop": "paidAt",
+        "label": "日期",
+        "sql": "paid_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "amount",
+        "label": "回款金额",
+        "sql": "amount",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "exchangeRate",
+        "label": "汇率",
+        "sql": "exchange_rate",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 4
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "code",
+        "label": "编码",
+        "sql": "code",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "paidAt",
+        "label": "日期",
+        "sql": "paid_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "amount",
+        "label": "回款金额",
+        "sql": "amount",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 2
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "水单",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "exchangeRate",
+        "label": "汇率",
+        "sql": "exchange_rate",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "precision": 4
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false,
+        "reference": "shop"
+      },
+      {
+        "prop": "remark",
+        "label": "备忘",
+        "sql": "remark",
+        "width": 150,
+        "numeric": false,
+        "type": "textarea",
+        "required": false,
+        "maxLength": 10000
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      }
+    ]
+  },
+  "shop": {
+    "title": "店铺",
+    "endpoint": "shop",
+    "fields": [
+      {
+        "prop": "name",
+        "label": "店铺名称",
+        "sql": "name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "nameRu",
+        "label": "俄文名称",
+        "sql": "name_ru",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "name",
+        "label": "店铺名称",
+        "sql": "name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "nameRu",
+        "label": "俄文名称",
+        "sql": "name_ru",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 255
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      },
+      {
+        "prop": "updatedAt",
+        "label": "更新时间",
+        "sql": "updated_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      }
+    ]
+  },
+  "attachment": {
+    "title": "附件",
+    "endpoint": "attachment",
+    "fields": [
+      {
+        "prop": "sourceTable",
+        "label": "所属业务",
+        "sql": "source_table",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "feishuRecordId",
+        "label": "所属记录",
+        "sql": "feishu_record_id",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 32
+      },
+      {
+        "prop": "fieldName",
+        "label": "附件字段",
+        "sql": "field_name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "fileName",
+        "label": "文件名",
+        "sql": "file_name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 255
+      },
+      {
+        "prop": "cosKey",
+        "label": "COS 对象 Key",
+        "sql": "cos_key",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 512
+      },
+      {
+        "prop": "cosUrl",
+        "label": "COS 公开 URL",
+        "sql": "cos_url",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 768
+      },
+      {
+        "prop": "sizeBytes",
+        "label": "文件字节",
+        "sql": "size_bytes",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "mimeType",
+        "label": "MIME 类型",
+        "sql": "mime_type",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 128
+      }
+    ],
+    "columns": [
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "id",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": true
+      },
+      {
+        "prop": "sourceTable",
+        "label": "所属业务",
+        "sql": "source_table",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "fieldName",
+        "label": "附件字段",
+        "sql": "field_name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 64
+      },
+      {
+        "prop": "fileName",
+        "label": "文件名",
+        "sql": "file_name",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": true,
+        "maxLength": 255
+      },
+      {
+        "prop": "attachmentJson",
+        "label": "图片预览",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "cosKey",
+        "label": "COS 对象 Key",
+        "sql": "cos_key",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 512
+      },
+      {
+        "prop": "cosUrl",
+        "label": "COS 公开 URL",
+        "sql": "cos_url",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 768
+      },
+      {
+        "prop": "sizeBytes",
+        "label": "文件字节",
+        "sql": "size_bytes",
+        "width": 150,
+        "numeric": true,
+        "type": "number",
+        "required": false
+      },
+      {
+        "prop": "mimeType",
+        "label": "MIME 类型",
+        "sql": "mime_type",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "maxLength": 128
+      },
+      {
+        "prop": "createdAt",
+        "label": "创建时间",
+        "sql": "created_at",
+        "width": 150,
+        "numeric": false,
+        "type": "date",
+        "required": false
+      }
+    ]
+  }
+}

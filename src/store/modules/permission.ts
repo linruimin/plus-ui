@@ -9,6 +9,8 @@ import auth from '@/plugins/auth';
 import router, { constantRoutes, dynamicRoutes } from '@/router';
 import store from '@/store';
 import { createCustomNameComponent } from '@/utils/createCustomNameComponent';
+import { getNormalPath } from '@/utils/ruoyi';
+import { isExternal } from '@/utils/validate';
 
 // 匹配views里面所有的.vue文件，预建查找表避免每次 O(n) 扫描
 const modules = import.meta.glob('./../../views/**/*.vue');
@@ -19,6 +21,25 @@ for (const path in modules) {
   const dir = path.substring(viewsIndex + 7, path.lastIndexOf('.vue'));
   viewModuleMap.set(dir, modules[path] as () => Promise<any>);
 }
+/** Display every visible page as a first-level navigation item without changing router nesting. */
+const flattenSidebarRoutes = (routes: RouteRecordRaw[]): RouteRecordRaw[] => {
+  const items: RouteRecordRaw[] = [];
+  const visit = (route: RouteRecordRaw, parentPath = '') => {
+    if (route.hidden) return;
+    const path = isExternal(route.path) || route.path.startsWith('/')
+      ? route.path
+      : getNormalPath(parentPath + '/' + route.path);
+    const children = route.children?.filter(child => !child.hidden) || [];
+    if (children.length) {
+      children.forEach(child => visit(child, path));
+    } else {
+      items.push({ ...route, path, children: undefined, alwaysShow: false });
+    }
+  };
+  routes.forEach(route => visit(route));
+  return items;
+};
+
 export const usePermissionStore = defineStore('permission', () => {
   const routes = ref<RouteRecordRaw[]>([]);
   const addRoutes = ref<RouteRecordRaw[]>([]);
@@ -50,7 +71,7 @@ export const usePermissionStore = defineStore('permission', () => {
     topbarRouters.value = routes;
   };
   const setSidebarRouters = (routes: RouteRecordRaw[]): void => {
-    sidebarRouters.value = routes;
+    sidebarRouters.value = flattenSidebarRoutes(routes);
   };
   const generateRoutes = async (): Promise<RouteRecordRaw[]> => {
     const res = await getRouters();
@@ -88,6 +109,10 @@ export const usePermissionStore = defineStore('permission', () => {
     return asyncRouterMap.filter(route => {
       if (type && route.children) {
         route.children = filterChildren(route.children, undefined);
+      }
+      // 业务表格保留视图工具栏，只隐藏其上方的页面标签栏。
+      if (route.component?.toString().startsWith('ozon/business/')) {
+        route.meta = { ...route.meta, hideTagsView: true };
       }
       // Layout ParentView 组件特殊处理
       if (route.component?.toString() === 'Layout') {
