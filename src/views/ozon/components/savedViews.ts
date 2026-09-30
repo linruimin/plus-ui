@@ -8,6 +8,8 @@ export interface ViewSnapshot {
   dateRange?: string[];
   groups?: ViewOrder[];
   sorts?: ViewOrder[];
+  /** 内置视图预设版本号；预设升级时用它把新列设置同步到已保存的快照。 */
+  rev?: number;
 }
 export interface ViewOrder { field: string; desc: boolean }
 export interface SavedView { id: string; name: string; snapshot: ViewSnapshot; notes?: string[] }
@@ -31,6 +33,20 @@ export function useSavedViews(key: string, defaults: SavedView[], capture: () =>
     : {});
   const snapshots = ref<Record<string, ViewSnapshot>>(isObject(saved.snapshots) ? saved.snapshots : {});
   delete snapshots.value['custom:legacy'];
+  // 内置视图预设升级（rev 变大）时，把新的列设置覆盖到本地已有快照，其余偏好保留。
+  {
+    let migrated = false;
+    for (const view of defaults) {
+      const rev = view.snapshot.rev;
+      if (!rev) continue;
+      const snap = snapshots.value[view.id];
+      if (!isObject(snap) || snap.rev === rev) continue;
+      if (view.snapshot.columns !== undefined) snap.columns = clone(view.snapshot.columns);
+      snap.rev = rev;
+      migrated = true;
+    }
+    if (migrated) writePreference(key, { ...saved, snapshots: snapshots.value });
+  }
   if (hiddenDefaults.value.length === defaults.length && !custom.value.length) hiddenDefaults.value = hiddenDefaults.value.filter(id => id !== defaults[0].id);
   const views = computed(() => [
     ...defaults.filter(view => !hiddenDefaults.value.includes(view.id)).map(view => ({ ...view, name: defaultNames.value[view.id] || view.name })),

@@ -1162,6 +1162,7 @@
         "columns": {
           "order": [
             "shipmentNo",
+            "attachmentJson",
             "productName",
             "calc14",
             "calc8",
@@ -1210,7 +1211,14 @@
             "orderPaidAt",
             "orderPackedQty"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left",
+            "attachmentJson": "left",
+            "productName": "left",
+            "calc14": "left",
+            "calc8": "left",
+            "calc17": "left"
+          }
         },
         "groups": [
           {
@@ -1231,7 +1239,8 @@
             "field": "boxes",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       }
     },
     {
@@ -1248,6 +1257,7 @@
         "columns": {
           "order": [
             "shipmentNo",
+            "attachmentJson",
             "productName",
             "purchaseId",
             "warehouseInAt",
@@ -1296,7 +1306,11 @@
             "createdAt",
             "updatedAt"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left",
+            "attachmentJson": "left",
+            "productName": "left"
+          }
         },
         "groups": [
           {
@@ -1317,7 +1331,8 @@
             "field": "boxes",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1339,6 +1354,7 @@
         "columns": {
           "order": [
             "shipmentNo",
+            "attachmentJson",
             "productName",
             "perBoxQty",
             "boxes",
@@ -1387,7 +1403,9 @@
             "createdAt",
             "updatedAt"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left"
+          }
         },
         "groups": [
           {
@@ -1404,7 +1422,8 @@
             "field": "boxes",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1426,6 +1445,7 @@
             "shipmentNo",
             "logisticsMethod",
             "calc14",
+            "attachmentJson",
             "productName",
             "purchaseId",
             "perBoxQty",
@@ -1472,7 +1492,12 @@
             "createdAt",
             "updatedAt"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left",
+            "logisticsMethod": "left",
+            "calc14": "left",
+            "attachmentJson": "left"
+          }
         },
         "groups": [
           {
@@ -1489,7 +1514,8 @@
             "field": "orderPaidAt",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1511,6 +1537,7 @@
         "columns": {
           "order": [
             "shipmentNo",
+            "attachmentJson",
             "productName",
             "perBoxQty",
             "boxes",
@@ -1559,7 +1586,9 @@
             "updatedAt",
             "orderPaidAt"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left"
+          }
         },
         "groups": [
           {
@@ -1572,7 +1601,8 @@
             "field": "orderPaidAt",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1594,6 +1624,7 @@
         "columns": {
           "order": [
             "shipmentNo",
+            "attachmentJson",
             "productName",
             "perBoxQty",
             "boxes",
@@ -1642,7 +1673,11 @@
             "createdAt",
             "updatedAt"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left",
+            "attachmentJson": "left",
+            "productName": "left"
+          }
         },
         "groups": [],
         "sorts": [
@@ -1650,7 +1685,8 @@
             "field": "orderPaidAt",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1672,6 +1708,7 @@
         "columns": {
           "order": [
             "shipmentNo",
+            "attachmentJson",
             "productName",
             "perBoxQty",
             "boxes",
@@ -1720,7 +1757,11 @@
             "createdAt",
             "updatedAt"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left",
+            "attachmentJson": "left",
+            "productName": "left"
+          }
         },
         "groups": [],
         "sorts": [
@@ -1728,7 +1769,8 @@
             "field": "orderPaidAt",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1750,6 +1792,7 @@
         "columns": {
           "order": [
             "shipmentNo",
+            "attachmentJson",
             "productName",
             "perBoxQty",
             "boxes",
@@ -1798,7 +1841,9 @@
             "calc4",
             "orderPaidAt"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left"
+          }
         },
         "groups": [
           {
@@ -1815,7 +1860,8 @@
             "field": "boxes",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1835,6 +1881,7 @@
         "columns": {
           "order": [
             "shipmentNo",
+            "attachmentJson",
             "productName",
             "shippingMark",
             "warehouseInAt",
@@ -1883,7 +1930,12 @@
             "orderPaidAt",
             "orderPackedQty"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left",
+            "attachmentJson": "left",
+            "productName": "left",
+            "shippingMark": "left"
+          }
         },
         "groups": [
           {
@@ -1904,7 +1956,8 @@
             "field": "boxes",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1925,6 +1978,7 @@
           "order": [
             "shipmentNo",
             "purchaseId",
+            "attachmentJson",
             "productName",
             "perBoxQty",
             "boxes",
@@ -1972,7 +2026,9 @@
             "createdAt",
             "updatedAt"
           ],
-          "fixed": {}
+          "fixed": {
+            "shipmentNo": "left"
+          }
         },
         "groups": [],
         "sorts": [
@@ -1980,7 +2036,8 @@
             "field": "shippedAt",
             "desc": true
           }
-        ]
+        ],
+        "rev": 2
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
