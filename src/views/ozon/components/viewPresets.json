@@ -1153,11 +1153,14 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {
-            "shopId": "1"
-          }
+          "conditions": [
+            {
+              "field": "shopId",
+              "operator": "is",
+              "value": "1"
+            }
+          ],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -1240,7 +1243,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       }
     },
     {
@@ -1250,9 +1253,8 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {}
+          "conditions": [],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -1332,7 +1334,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1345,11 +1347,14 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {
-            "logisticsMethod": "跨境店"
-          }
+          "conditions": [
+            {
+              "field": "logisticsMethod",
+              "operator": "is",
+              "value": "跨境店"
+            }
+          ],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -1423,7 +1428,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1436,9 +1441,8 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {}
+          "conditions": [],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -1515,7 +1519,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1528,11 +1532,14 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {
-            "logisticsMethod": "立德"
-          }
+          "conditions": [
+            {
+              "field": "logisticsMethod",
+              "operator": "is",
+              "value": "立德"
+            }
+          ],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -1602,7 +1609,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1615,11 +1622,14 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {
-            "logisticsMethod": "超光速"
-          }
+          "conditions": [
+            {
+              "field": "logisticsMethod",
+              "operator": "is",
+              "value": "超光速"
+            }
+          ],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -1686,7 +1696,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1699,11 +1709,14 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {
-            "logisticsMethod": "贝加尔"
-          }
+          "conditions": [
+            {
+              "field": "logisticsMethod",
+              "operator": "is",
+              "value": "贝加尔"
+            }
+          ],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -1770,7 +1783,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1783,11 +1796,14 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {
-            "logisticsMethod": "边境带货"
-          }
+          "conditions": [
+            {
+              "field": "logisticsMethod",
+              "operator": "is",
+              "value": "边境带货"
+            }
+          ],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -1861,7 +1877,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1874,9 +1890,8 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {}
+          "conditions": [],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -1957,7 +1972,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"
@@ -1970,9 +1985,8 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "filters": {},
-          "ends": {},
-          "equals": {}
+          "conditions": [],
+          "conjunction": "and"
         },
         "columns": {
           "order": [
@@ -2037,7 +2051,7 @@
             "desc": true
           }
         ],
-        "rev": 2
+        "rev": 3
       },
       "notes": [
         "原视图中的交货申请单号尚未接入当前页面。"

@@ -2,8 +2,13 @@ import request from '@/utils/request';
 import type { AxiosPromise } from '@/utils/api-types';
 import type { PageResult } from '@/api/types';
 export type BusinessRow = Record<string, any>;
-export interface BusinessQuery extends PageQuery { scopeShopId?:string; manualOrder?:boolean; orderByColumn?:string; isAsc?:string; keyword?: string; equals?: Record<string,string>; sortFields?:string; groupFields?:string; filters?: Record<string,string>; ends?: Record<string,string> }
-export const listBusiness = (endpoint:string, params:BusinessQuery):AxiosPromise<PageResult<BusinessRow>> => request({ url:'/ozon/business/'+endpoint+'/list',method:'get',params });
+/** 多维表格风格的筛选条件：字段 + 运算符 + 值。 */
+export interface FilterCondition { field:string; operator:string; value?:string }
+export interface BusinessQuery extends PageQuery { scopeShopId?:string; manualOrder?:boolean; orderByColumn?:string; isAsc?:string; keyword?: string; equals?: Record<string,string>; sortFields?:string; groupFields?:string; filters?: Record<string,string>; ends?: Record<string,string>; conditions?:FilterCondition[]; conjunction?:'and'|'or' }
+export const listBusiness = (endpoint:string, params:BusinessQuery):AxiosPromise<PageResult<BusinessRow>> => {
+ const { conditions, ...rest } = params;
+ return request({ url:'/ozon/business/'+endpoint+'/list',method:'get',params:{...rest,conditions:conditions&&conditions.length?JSON.stringify(conditions):undefined} });
+};
 export const getBusiness = (endpoint:string,id:string|number):AxiosPromise<BusinessRow> => request({url:'/ozon/business/'+endpoint+'/'+id,method:'get'});
 export const addBusiness = (endpoint:string,data:BusinessRow) => request({url:'/ozon/business/'+endpoint,method:'post',data});
 export const editBusiness = (endpoint:string,data:BusinessRow) => request({url:'/ozon/business/'+endpoint,method:'put',data});
@@ -22,12 +27,13 @@ export const deleteBusiness = (endpoint:string,id:string|number,revision:string)
 
 /** 全局店铺覆盖视图原有的店铺条件，其余筛选保留；不修改视图快照。 */
 export function scopeBusinessQuery(params:BusinessQuery, scopeShopId?:string):BusinessQuery {
- const result={...params,filters:{...params.filters},equals:{...params.equals}};
+ const result={...params,filters:{...params.filters},equals:{...params.equals},conditions:(params.conditions||[]).map(condition=>({...condition}))};
  delete result.scopeShopId;
  if(scopeShopId){
   result.scopeShopId=scopeShopId;
   delete result.filters.shopId;
   delete result.equals.shopId;
+  result.conditions=result.conditions.filter(condition=>condition.field!=='shopId');
  }
  return result;
 }

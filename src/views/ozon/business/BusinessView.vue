@@ -3,18 +3,10 @@
   <el-card shadow="never">
    <template #header><div class="toolbar business-toolbar"><h2>{{ config.title }}</h2><el-tag v-if="shopStore.selectedId" type="primary">{{ shopStore.selectedName }}</el-tag><el-tag v-if="table==='logisticsProvider' || table==='logistics_provider'" type="info">共用物流资料</el-tag><ViewSelector :model-value="viewManager.activeId.value" :views="viewManager.views.value" @select="selectView" @action="viewAction"/><span class="count">共 {{ total }} 条</span><el-tag v-if="draftCount" type="warning">{{ draftCount }} 行待确认</el-tag><div class="actions">
     <el-button v-hasPermi="[permission('add')]" type="primary" icon="Plus" @click="openAdd">新增</el-button>
-    <el-popover placement="bottom-end" trigger="click" :width="360">
-     <template #reference><el-button icon="Filter">筛选</el-button></template>
-     <div class="filters"><el-input v-model="query.keyword" placeholder="搜索文字字段" clearable @keyup.enter="search"/>
-      <div v-if="Object.keys(effectiveEquals).length" class="preset-filters"><span class="preset-filters-label">当前筛选</span><el-tag v-for="(value,key) in effectiveEquals" :key="key" closable @close="removeExact(String(key))">{{ filterLabel(String(key),value) }}</el-tag></div>
-      <el-form label-position="top">
-       <el-form-item v-for="field in filterFields" :key="field.prop" :label="field.label">
-        <ReferencePicker v-if="field.reference" v-model="query.filters![field.prop]" :target="field.reference"/>
-        <el-select v-else-if="field.options" v-model="query.filters![field.prop]" clearable style="width:100%"><el-option v-for="option in field.options" :key="option" :label="option" :value="option"/></el-select>
-        <template v-else-if="field.type==='date'"><el-date-picker v-model="query.filters![field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="开始时间" clearable/><el-date-picker v-model="query.ends![field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="结束时间" clearable/></template>
-        <el-input v-else v-model="query.filters![field.prop]" clearable :placeholder="field.numeric?'精确数值':'包含文字'"/>
-       </el-form-item>
-      </el-form>
+    <el-popover placement="bottom-end" trigger="click" :width="460">
+     <template #reference><el-button :type="filterCount?'primary':'default'" icon="Filter">筛选{{ filterCount?' · '+filterCount:'' }}</el-button></template>
+     <div class="filters">
+      <FilterBuilder :conditions="query.conditions||[]" :conjunction="query.conjunction||'and'" :keyword="query.keyword||''" :columns="filterColumns" :fields="allFilterFields" @update:conditions="query.conditions=$event" @update:conjunction="query.conjunction=$event" @update:keyword="query.keyword=$event" @search="search"/>
      </div>
      <div class="toolbar"><el-button type="primary" @click="search">查询</el-button><el-button @click="resetFilters">清空筛选</el-button></div>
     </el-popover>
@@ -105,7 +97,7 @@ import {useWindowSize} from '@vueuse/core';
 import {ElMessage,ElMessageBox} from 'element-plus';
 import type {FormInstance} from 'element-plus';
 import {listBusiness,getBusiness,addBusiness,editBusiness,deleteBusiness,placeBusinessRow,listRemovedBusinessFields,removeBusinessField,listBusinessCustomFields,listBusinessCustomValues,addBusinessCustomField,saveBusinessCustomValue,removeBusinessCustomField,scopeBusinessQuery} from '@/api/ozon/business';
-import type {BusinessRow,BusinessQuery,BusinessCustomField} from '@/api/ozon/business';
+import type {BusinessRow,BusinessQuery,BusinessCustomField,FilterCondition} from '@/api/ozon/business';
 import {useUserStore} from '@/store/modules/user';
 import {useOzonShopStore} from '@/store/modules/ozonShop';
 import ColumnSettings from '../components/ColumnSettings.vue';
@@ -117,6 +109,7 @@ import AttachmentImages from '../components/AttachmentImages.vue';
 import ReferencePicker from './ReferencePicker.vue';
 import ViewSelector from '../components/ViewSelector.vue';
 import ViewOrdering from '../components/ViewOrdering.vue';
+import FilterBuilder from '../components/FilterBuilder.vue';
 import {useSavedViews,type ViewSnapshot,type ViewOrder,type SavedView} from '../components/savedViews';
 import viewPresets from '../components/viewPresets.json';
 const props=defineProps<{table:string}>();const config=businessConfig[props.table];
@@ -133,7 +126,35 @@ const protectedFieldProps=new Set(['id','shopId','productId','purchaseId','creat
 const savedQuery=(saved.query&&typeof saved.query==='object'?saved.query:{}) as BusinessQuery;
 const validColumns=new Set(config.columns.filter(f=>!f.attachment).map(f=>f.prop));
 const cleanFilters=(value:unknown)=>Object.fromEntries(Object.entries(value&&typeof value==='object'?value:{}).filter(([k,v])=>validColumns.has(k)&&typeof v==='string'));
-const query=reactive<BusinessQuery>({pageNum:1,pageSize:[10,20,50,100].includes(Number(savedQuery.pageSize))?Number(savedQuery.pageSize):100,orderByColumn:validColumns.has(savedQuery.orderByColumn||'')?savedQuery.orderByColumn:'id',isAsc:savedQuery.isAsc==='asc'?'asc':'desc',manualOrder:savedQuery.manualOrder===true,keyword:typeof savedQuery.keyword==='string'?savedQuery.keyword:'',filters:cleanFilters(savedQuery.filters),ends:cleanFilters(savedQuery.ends),equals:cleanFilters(savedQuery.equals)});
+/** 多维表格风格的筛选条件：运算符白名单与后端 applyCondition 一一对应。 */
+const conditionOperators=new Set(['is','isNot','contains','notContains','isEmpty','isNotEmpty','gt','gte','lt','lte']);
+function cleanConditions(value:unknown):FilterCondition[]{
+ const seen=new Set<string>();
+ return (Array.isArray(value)?value:[]).filter(item=>!!item&&typeof item==='object'&&!Array.isArray(item)).map(item=>item as Record<string,unknown>)
+  .filter(item=>{
+   if(typeof item.field!=='string'||!validColumns.has(item.field)||typeof item.operator!=='string'||!conditionOperators.has(item.operator)||seen.has(item.field))return false;
+   seen.add(item.field);
+   return true;
+  })
+  .slice(0,20)
+  .map(item=>({field:item.field as string,operator:item.operator as string,value:item.value===undefined||item.value===null?'':String(item.value)}));
+}
+/** 旧视图快照的精确/包含/日期区间映射转成条件列表，保证历史设置不丢。 */
+function legacyConditions(source:Record<string,any>):FilterCondition[]{
+ const conditions:FilterCondition[]=[];
+ for(const [field,value] of Object.entries(cleanFilters(source.equals||{})))conditions.push({field,operator:'is',value:String(value)});
+ for(const [field,value] of Object.entries(cleanFilters(source.filters||{}))){
+  const column=config.columns.find(item=>item.prop===field);
+  conditions.push({field,operator:column?.type==='date'?'gte':column?.numeric?'is':'contains',value:String(value)});
+ }
+ for(const [field,value] of Object.entries(cleanFilters(source.ends||{})))conditions.push({field,operator:'lte',value:String(value)});
+ return conditions;
+}
+function resolveConditions(source:Record<string,any>):FilterCondition[]{
+ const conditions=cleanConditions(source.conditions);
+ return conditions.length?conditions:legacyConditions(source);
+}
+const query=reactive<BusinessQuery>({pageNum:1,pageSize:[10,20,50,100].includes(Number(savedQuery.pageSize))?Number(savedQuery.pageSize):100,orderByColumn:validColumns.has(savedQuery.orderByColumn||'')?savedQuery.orderByColumn:'id',isAsc:savedQuery.isAsc==='asc'?'asc':'desc',manualOrder:savedQuery.manualOrder===true,keyword:typeof savedQuery.keyword==='string'?savedQuery.keyword:'',filters:{},ends:{},equals:{},conditions:resolveConditions(savedQuery as Record<string,any>),conjunction:savedQuery.conjunction==='or'?'or':'and'});
 const initialColumns=saved.columns||{hidden:['id','createdAt','updatedAt']};
 const columnState=ref(normalizeColumns(initialColumns,allColumns.value));
 let customColumnsLoaded=false;
@@ -150,7 +171,7 @@ function restoreView(snapshot:ViewSnapshot){
   const q=snapshot.query||{};
   Object.assign(query,{pageNum:1,pageSize:[10,20,50,100].includes(Number(q.pageSize))?Number(q.pageSize):100,
     orderByColumn:validColumns.has(q.orderByColumn||'')?q.orderByColumn:'id',isAsc:q.isAsc==='asc'?'asc':'desc',manualOrder:q.manualOrder===true,
-    keyword:typeof q.keyword==='string'?q.keyword:'',filters:cleanFilters(q.filters),ends:cleanFilters(q.ends),equals:cleanFilters(q.equals)});
+    keyword:typeof q.keyword==='string'?q.keyword:'',filters:{},ends:{},equals:{},conditions:resolveConditions(q as Record<string,any>),conjunction:q.conjunction==='or'?'or':'and'});
   groups.value=query.manualOrder?[]:cleanOrder(snapshot.groups,3);
   sorts.value=query.manualOrder?[]:cleanOrder(snapshot.sorts??[{field:query.orderByColumn,desc:query.isAsc!=='asc'}],5);
   columnState.value=normalizeColumns(snapshot.columns,allColumns.value);
@@ -159,16 +180,15 @@ const defaults=(viewPresets as Record<string,SavedView[]>)[props.table];
 const viewManager=useSavedViews(storageKey+':saved-views',defaults,captureView,restoreView);
 function selectView(id:string){viewManager.select(id);search();}
 async function viewAction(action:'add'|'rename'|'remove'|'reset'){if(await viewManager[action]())search();}
-function removeExact(key:string){delete query.equals![key];search();}
-function filterLabel(key:string,value:string){const field=config.columns.find(f=>f.prop===key);return (field?.label||key)+'：'+(key==='shopId'?shopStore.shops.find(s=>s.id===value)?.name||value:value);}
 
 function persist(){viewManager.saveCurrent();}
 watch(columnState,persist,{deep:true});
 const visibleColumns=computed(()=>{const columns=selectedColumns(columnState.value,activeColumns.value) as BusinessField[];return draftCount.value?columns:columns.filter(field=>field.prop!=='__actions');});
 const tableKey=computed(()=>JSON.stringify([columnState.value,activeColumns.value.map(f=>f.prop),groups.value,sorts.value,draftCount.value>0]));
 const defaultSort=computed(()=>sorts.value.length?{prop:sorts.value[0].field,order:sorts.value[0].desc===false?'ascending' as const:'descending' as const}:{prop:'',order:null});
-const filterFields=computed(()=>config.columns.filter(f=>!removedFields.value.includes(f.prop)&&!f.attachment&&!f.multiple&&f.prop!=='id'&&f.prop!=='createdAt'&&f.prop!=='updatedAt'&&(!shopStore.selectedId||f.prop!=='shopId')));
-const effectiveEquals=computed(()=>Object.fromEntries(Object.entries(query.equals||{}).filter(([key])=>!shopStore.selectedId||key!=='shopId')));
+const allFilterFields=computed(()=>config.columns.filter(field=>!removedFields.value.includes(field.prop)&&!field.attachment&&!field.multiple));
+const filterColumns=computed(()=>allFilterFields.value.filter(field=>!shopStore.selectedId||field.prop!=='shopId'));
+const filterCount=computed(()=>(query.conditions||[]).filter(condition=>!shopStore.selectedId||condition.field!=='shopId').length);
 const calculatedFields=computed(()=>config.columns.filter(f=>!removedFields.value.includes(f.prop)&&f.readonly));
 const sourceTables=Object.fromEntries(Object.entries(businessConfig).filter(([key])=>key!=='attachment'));
 const {height}=useWindowSize();const tableViewport=ref<HTMLElement>(),footerRef=ref<HTMLElement>();
@@ -188,9 +208,9 @@ function updateTableHeight(){void nextTick(()=>{
 watch(height,updateTableHeight);
 
 const rows=ref<BusinessRow[]>([]),total=ref(0),loading=ref(false),error=ref('');let version=0;
-async function getList(){persist();const current=++version;loading.value=true;error.value='';try{const custom=await listBusinessCustomFields(config.endpoint);if(current!==version)return;customFields.value=custom.data||[];if(!customColumnsLoaded){columnState.value=normalizeColumns(initialColumns,allColumns.value);customColumnsLoaded=true;}const removed=await listRemovedBusinessFields(config.endpoint);if(current!==version)return;removedFields.value=removed.data||[];for(const key of Object.keys(query.filters||{}))if(removedFields.value.includes(key))delete query.filters![key];for(const key of Object.keys(query.ends||{}))if(removedFields.value.includes(key))delete query.ends![key];for(const key of Object.keys(query.equals||{}))if(removedFields.value.includes(key))delete query.equals![key];groups.value=groups.value.filter(g=>!removedFields.value.includes(g.field));sorts.value=sorts.value.filter(g=>!removedFields.value.includes(g.field));if(removedFields.value.includes(query.orderByColumn||''))query.orderByColumn='id';const shopId=await shopStore.ensureLoaded();if(current!==version)return;const r=await listBusiness(config.endpoint,scopeBusinessQuery({...query,groupFields:groups.value.map(v=>v.field+':'+(v.desc?'desc':'asc')).join(','),sortFields:sorts.value.map(v=>v.field+':'+(v.desc?'desc':'asc')).join(',')},shopId));if(current===version){const pageRows=r.data?.rows||[];if(customFields.value.length&&pageRows.length){const values=await listBusinessCustomValues(config.endpoint,pageRows.map((row:BusinessRow)=>String(row.id)));if(current!==version)return;for(const value of values.data||[]){const row=pageRows.find((item:BusinessRow)=>String(item.id)===String(value.rowId));if(row)row['custom_'+value.fieldId]=value.value;}}rows.value=pageRows;total.value=r.data?.total||0;}}catch(cause){if(current===version){rows.value=[];total.value=0;error.value=shopStore.error||'查询失败，请检查筛选条件后重试';}}finally{if(current===version){loading.value=false;updateTableHeight();}}}
+async function getList(){persist();const current=++version;loading.value=true;error.value='';try{const custom=await listBusinessCustomFields(config.endpoint);if(current!==version)return;customFields.value=custom.data||[];if(!customColumnsLoaded){columnState.value=normalizeColumns(initialColumns,allColumns.value);customColumnsLoaded=true;}const removed=await listRemovedBusinessFields(config.endpoint);if(current!==version)return;removedFields.value=removed.data||[];for(const key of Object.keys(query.filters||{}))if(removedFields.value.includes(key))delete query.filters![key];for(const key of Object.keys(query.ends||{}))if(removedFields.value.includes(key))delete query.ends![key];for(const key of Object.keys(query.equals||{}))if(removedFields.value.includes(key))delete query.equals![key];query.conditions=cleanConditions((query.conditions||[]).filter(condition=>!removedFields.value.includes(condition.field)));groups.value=groups.value.filter(g=>!removedFields.value.includes(g.field));sorts.value=sorts.value.filter(g=>!removedFields.value.includes(g.field));if(removedFields.value.includes(query.orderByColumn||''))query.orderByColumn='id';const shopId=await shopStore.ensureLoaded();if(current!==version)return;const r=await listBusiness(config.endpoint,scopeBusinessQuery({...query,groupFields:groups.value.map(v=>v.field+':'+(v.desc?'desc':'asc')).join(','),sortFields:sorts.value.map(v=>v.field+':'+(v.desc?'desc':'asc')).join(',')},shopId));if(current===version){const pageRows=r.data?.rows||[];if(customFields.value.length&&pageRows.length){const values=await listBusinessCustomValues(config.endpoint,pageRows.map((row:BusinessRow)=>String(row.id)));if(current!==version)return;for(const value of values.data||[]){const row=pageRows.find((item:BusinessRow)=>String(item.id)===String(value.rowId));if(row)row['custom_'+value.fieldId]=value.value;}}rows.value=pageRows;total.value=r.data?.total||0;}}catch(cause){if(current===version){rows.value=[];total.value=0;error.value=shopStore.error||'查询失败，请检查筛选条件后重试';}}finally{if(current===version){loading.value=false;updateTableHeight();}}}
 function search(){query.pageNum=1;void getList();}
-function resetFilters(){query.keyword='';query.filters={};query.ends={};query.equals={};search();}
+function resetFilters(){query.keyword='';query.filters={};query.ends={};query.equals={};query.conditions=[];query.conjunction='and';search();}
 function sortChange({prop,order}:{prop:string;order:string|null}){
   if(order)query.manualOrder=false;
   const next=order?[{field:prop,desc:order!=='ascending'}]:[];

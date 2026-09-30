@@ -33,7 +33,7 @@ export function useSavedViews(key: string, defaults: SavedView[], capture: () =>
     : {});
   const snapshots = ref<Record<string, ViewSnapshot>>(isObject(saved.snapshots) ? saved.snapshots : {});
   delete snapshots.value['custom:legacy'];
-  // 内置视图预设升级（rev 变大）时，把新的列设置覆盖到本地已有快照，其余偏好保留。
+  // 内置视图预设升级（rev 变大）时，把新的列设置和筛选条件覆盖到本地已有快照，其余偏好保留。
   {
     let migrated = false;
     for (const view of defaults) {
@@ -42,6 +42,18 @@ export function useSavedViews(key: string, defaults: SavedView[], capture: () =>
       const snap = snapshots.value[view.id];
       if (!isObject(snap) || snap.rev === rev) continue;
       if (view.snapshot.columns !== undefined) snap.columns = clone(view.snapshot.columns);
+      const presetQuery = view.snapshot.query;
+      if (isObject(presetQuery) && Array.isArray(presetQuery.conditions)) {
+        // 筛选改为多维表格风格的条件列表，同时清掉旧的精确/包含/日期区间映射。
+        snap.query = {
+          ...(isObject(snap.query) ? snap.query : {}),
+          conditions: clone(presetQuery.conditions),
+          conjunction: presetQuery.conjunction === 'or' ? 'or' : 'and',
+          filters: {},
+          ends: {},
+          equals: {}
+        };
+      }
       snap.rev = rev;
       migrated = true;
     }
