@@ -28,6 +28,15 @@ const compressionHandlers: Record<CompressionKind, { ext: string; compress: (con
   }
 };
 
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await fs.access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function collectFiles(rootDir: string): Promise<string[]> {
   const entries = await fs.readdir(rootDir, { withFileTypes: true });
   const files = await Promise.all(
@@ -45,16 +54,26 @@ async function collectFiles(rootDir: string): Promise<string[]> {
 function createCompressionPlugin(kind: CompressionKind): Plugin {
   const handler = compressionHandlers[kind];
   let config: ResolvedConfig | undefined;
+  let running = false;
 
-  return {
-    name: `local:compression:${kind}`,
-    apply: 'build',
-    enforce: 'post',
-    configResolved(resolvedConfig) {
-      config = resolvedConfig;
-    },
-    async closeBundle() {
+  /**
+   * rolldown 版的 vite 可能在校验阶段就触发 closeBundle（此时资源尚未落盘），
+   * 因此压缩挂在 writeBundle 上，closeBundle 仅作兜底，并对目录未就绪做等待与降级。
+   */
+  async function run(): Promise<void> {
+    if (running) {
+      return;
+    }
+    running = true;
+    try {
       const outputDir = path.resolve(process.cwd(), config?.build.outDir ?? 'dist');
+      for (let attempt = 0; attempt < 40 && !(await pathExists(outputDir)); attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      if (!(await pathExists(outputDir))) {
+        config?.logger.warn(`\n[compression:${kind}] 已跳过：找不到输出目录 ${outputDir}`);
+        return;
+      }
       const files = await collectFiles(outputDir);
       const compressedEntries: Array<{ file: string; originalKb: string; compressedKb: string }> = [];
 
@@ -90,6 +109,26 @@ function createCompressionPlugin(kind: CompressionKind): Plugin {
         );
       }
       config?.logger.info('');
+    } catch (error) {
+      // 预压缩只是优化，失败不应中断构建。
+      config?.logger.warn(
+        `\n[compression:${kind}] 压缩失败已跳过：${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  return {
+    name: `local:compression:${kind}`,
+    apply: 'build',
+    enforce: 'post',
+    configResolved(resolvedConfig) {
+      config = resolvedConfig;
+    },
+    async writeBundle() {
+      await run();
+    },
+    async closeBundle() {
+      await run();
     }
   };
 }
