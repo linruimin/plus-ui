@@ -1,4 +1,5 @@
 <template>
+ <div class="reference-dialog-root">
  <div class="reference-field" :class="{'is-empty':!selected.length,'is-disabled':disabled}" :title="title" @click="open">
   <span v-for="item in selected" :key="item.value" class="reference-chip" :title="item.label">{{ item.label }}</span>
   <span v-if="!selected.length" class="reference-placeholder">{{ placeholder }}</span>
@@ -22,6 +23,7 @@
    <el-button type="primary" :disabled="!pending.length" @click="submit">{{ multiple ? '确定（' + pending.length + '）' : '确定' }}</el-button>
   </template>
  </el-dialog>
+ </div>
 </template>
 <script setup lang="ts">
 import {computed,nextTick,ref,watch} from 'vue';
@@ -139,6 +141,7 @@ function submit(value?:string|string[],row?:BusinessRow){
 }
 </script>
 <style scoped>
+.reference-dialog-root{width:100%;min-width:0}
 .reference-field{display:flex;align-items:center;gap:4px;min-height:22px;width:100%;min-width:0;cursor:pointer;overflow:hidden;border-radius:4px}
 .reference-field:hover{background:var(--el-color-primary-light-9)}
 .reference-field.is-disabled{cursor:not-allowed}
