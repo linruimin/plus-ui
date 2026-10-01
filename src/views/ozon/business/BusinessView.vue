@@ -2,7 +2,7 @@
  <div class="p-2 business-view">
   <el-card shadow="never">
    <template #header><div class="toolbar business-toolbar"><h2>{{ config.title }}</h2><el-tag v-if="shopStore.selectedId" type="primary">{{ shopStore.selectedName }}</el-tag><el-tag v-if="table==='logisticsProvider' || table==='logistics_provider'" type="info">共用物流资料</el-tag><ViewSelector :model-value="viewManager.activeId.value" :views="viewManager.views.value" @select="selectView" @action="viewAction"/><span class="count">共 {{ total }} 条</span><el-tag v-if="draftCount" type="warning">{{ draftCount }} 行待确认</el-tag><div class="actions">
-    <el-button v-hasPermi="[permission('add')]" type="primary" icon="Plus" @click="openAdd">新增</el-button>
+    <el-button v-hasPermi="[permission('add')]" type="primary" icon="Plus" @click="openAdd()">新增</el-button>
     <el-popover placement="bottom-end" trigger="click" :width="460">
      <template #reference><el-button :type="filterCount?'primary':'default'" icon="Filter">筛选{{ filterCount?' · '+filterCount:'' }}</el-button></template>
      <div class="filters">
@@ -17,26 +17,32 @@
    <el-alert v-if="storageWarning || viewManager.storageWarning.value" title="当前浏览器无法保存视图设置" type="warning" :closable="false"/>
    <el-alert v-if="error" :title="error" type="error" :closable="false"/>
    <div ref="tableViewport" class="table-viewport">
-   <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':''" :height="tableHeight" :default-sort="defaultSort" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
-    <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ rowNumbers.get(String(row.id)) }}</span></template></el-table-column>
+   <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':row.__new?'business-new-row':''" :height="tableHeight" :default-sort="defaultSort" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
+    <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ row.__new?'＋':(rowNumbers.get(String(row.id))??'') }}</span></template></el-table-column>
     <el-table-column v-for="field in visibleColumns" :key="field.prop" :prop="field.prop" :width="gridColumnWidth(field)" :fixed="field.fixed" :sortable="field.attachment||field.prop==='__actions'||field.multiple||field.customId?false:'custom'" :align="field.numeric&&!field.reference?'right':'left'" show-overflow-tooltip>
      <template #header><span class="field-heading"><span v-if="field.reference" class="field-type-icon" title="引用字段" aria-label="引用字段">↗</span><span v-else-if="field.readonly" class="field-type-icon field-type-formula" title="计算字段" aria-label="计算字段">ƒx</span><span v-else-if="field.customId" class="field-type-icon" :title="field.numeric?'数字字段':'文本字段'">{{ field.numeric?'#':'T' }}</span><span>{{ field.label }}</span></span></template>
      <template #default="{row}">
       <span v-if="row.__group" class="group-cell" :style="field.prop===visibleColumns[0]?.prop?{paddingLeft:(row.__level||0)*14+'px'}:{}" :title="row.__groupTitle||row.__group"><template v-if="field.prop===visibleColumns[0]?.prop"><span class="group-name" :class="{'group-name-secondary':row.__level>0}">{{ row.__groupName }}</span><span class="group-count">{{ row.__count }} 条</span></template><span v-if="row[field.prop]!==undefined" class="group-sum"><span class="sum-prefix">求和</span><span class="sum-value">{{ display(row,field) }}</span></span></span>
       <div v-else-if="field.prop==='__actions'" class="row-actions">
-       <el-button v-hasPermi="[permission('edit')]" link type="primary"  :loading="rowBusy[row.id]" :disabled="!drafts[row.id]" @click="confirmRow(row)">确认</el-button>
-       <el-button v-if="drafts[row.id]" link :disabled="rowBusy[row.id]" @click="discardRow(row)">取消</el-button>
+       <template v-if="row.__new">
+        <el-button v-hasPermi="[permission('add')]" link type="primary" :loading="rowBusy[row.id]" @click="confirmNewRow">确认</el-button>
+        <el-button link :disabled="rowBusy[row.id]" @click="cancelNewRow">取消</el-button>
+       </template>
+       <template v-else>
+        <el-button v-hasPermi="[permission('edit')]" link type="primary"  :loading="rowBusy[row.id]" :disabled="!drafts[row.id]" @click="confirmRow(row)">确认</el-button>
+        <el-button v-if="drafts[row.id]" link :disabled="rowBusy[row.id]" @click="discardRow(row)">取消</el-button>
+       </template>
       </div>
       <AttachmentImages v-else-if="field.attachment" :value="row[field.prop]"/>
       <div v-else-if="field.customId" class="editable-cell custom-cell" :class="{'is-draft':customEdit?.rowId===String(row.id)&&customEdit?.fieldId===field.customId}" @click="beginCustomCell(row,field)">
        <el-input v-if="customEdit?.rowId===String(row.id)&&customEdit?.fieldId===field.customId" v-model="customEdit.value" :type="field.numeric?'number':'text'" :maxlength="1000" :disabled="customSaving" :aria-label="field.label" @keyup.enter="saveCustomCell(row,field)" @keyup.esc="customEdit=null" @blur="saveCustomCell(row,field)"/>
        <span v-else>{{ display(row,field) }}</span>
       </div>
-      <div v-else-if="editable(field)" class="editable-cell" :class="{'is-draft':drafts[row.id]}" @click="beginCell(row,field)" @keydown.enter.self="beginCell(row,field)" tabindex="0" :title="drafts[row.id]?'修改后点击本行确认':'点击修改'">
+      <div v-else-if="editable(field,row)" class="editable-cell" :class="{'is-draft':drafts[row.id]&&!row.__new,'is-new-cell':row.__new}" @click="beginCell(row,field)" @keydown.enter.self="beginCell(row,field)" tabindex="0" :title="row.__new?'填写本行后点右侧确认':drafts[row.id]?'修改后点击本行确认':'点击修改'">
        <template v-if="drafts[row.id]">
         <el-select v-if="table==='attachment'&&field.prop==='sourceTable'" v-model="drafts[row.id].sourceTable" :disabled="rowBusy[row.id]" @change="drafts[row.id].feishuRecordId=null"><el-option v-for="(cfg,key) in sourceTables" :key="key" :value="key" :label="cfg.title"/></el-select>
         <ReferencePicker v-else-if="table==='attachment'&&field.prop==='feishuRecordId'" v-model="drafts[row.id].feishuRecordId" :target="drafts[row.id].sourceTable||'product'" value-key="feishuRecordId" :disabled="rowBusy[row.id]"/>
-        <ReferencePicker v-else-if="inputField(field).reference" v-model="drafts[row.id][field.prop]" :target="inputField(field).reference!" :multiple="inputField(field).multiple" :disabled="rowBusy[row.id]"/>
+        <ReferenceDialog v-else-if="inputField(field).reference" v-model="drafts[row.id][field.prop]" :target="inputField(field).reference!" :multiple="inputField(field).multiple" :disabled="rowBusy[row.id]" :label="drafts[row.id][field.prop+'Label']"/>
         <el-select v-else-if="inputField(field).options" v-model="drafts[row.id][field.prop]" clearable :disabled="rowBusy[row.id]"><el-option v-for="option in inputField(field).options" :key="option" :label="option" :value="option"/></el-select>
         <el-date-picker v-else-if="inputField(field).type==='date'" v-model="drafts[row.id][field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" clearable :disabled="rowBusy[row.id]"/>
         <el-input v-else v-model="drafts[row.id][field.prop]" :maxlength="inputField(field).maxLength" :disabled="rowBusy[row.id]" :aria-label="field.label"/>
@@ -76,7 +82,7 @@
     <div class="form-grid"><el-form-item v-for="field in activeFields" :key="field.prop" :prop="field.prop" :label="field.label" :rules="field.required?[{required:true,message:'请填写'+field.label,trigger:'change'}]:[]">
      <el-select v-if="table==='attachment'&&field.prop==='sourceTable'" v-model="form.sourceTable" @change="form.feishuRecordId=null"><el-option v-for="(cfg,key) in sourceTables" :key="key" :value="key" :label="cfg.title"/></el-select>
      <ReferencePicker v-else-if="table==='attachment'&&field.prop==='feishuRecordId'" v-model="form.feishuRecordId" :target="form.sourceTable||'product'" value-key="feishuRecordId"/>
-     <ReferencePicker v-else-if="field.reference" v-model="form[field.prop]" :target="field.reference" :multiple="field.multiple"/>
+     <ReferenceDialog v-else-if="field.reference" v-model="form[field.prop]" :target="field.reference" :multiple="field.multiple"/>
      <el-select v-else-if="field.options" v-model="form[field.prop]" clearable><el-option v-for="option in field.options" :key="option" :label="option" :value="option"/></el-select>
      <el-date-picker v-else-if="field.type==='date'" v-model="form[field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" clearable/>
      <el-input v-else v-model="form[field.prop]" :type="field.type==='textarea'?'textarea':'text'" :maxlength="field.maxLength" :rows="3" :placeholder="field.prop==='boxSpec'?'长*宽*高（厘米），如60*40*30':field.numeric?'请输入数值':undefined" clearable/>
@@ -96,7 +102,7 @@ import {onBeforeRouteLeave} from 'vue-router';
 import {useWindowSize} from '@vueuse/core';
 import {ElMessage,ElMessageBox} from 'element-plus';
 import type {FormInstance} from 'element-plus';
-import {listBusiness,getBusiness,addBusiness,editBusiness,deleteBusiness,placeBusinessRow,listRemovedBusinessFields,removeBusinessField,listBusinessCustomFields,listBusinessCustomValues,addBusinessCustomField,saveBusinessCustomValue,removeBusinessCustomField,scopeBusinessQuery} from '@/api/ozon/business';
+import {listBusiness,getBusiness,addBusiness,editBusiness,deleteBusiness,placeBusinessRow,listRemovedBusinessFields,removeBusinessField,listBusinessCustomFields,listBusinessCustomValues,addBusinessCustomField,saveBusinessCustomValue,removeBusinessCustomField,scopeBusinessQuery,nextBusinessNumber} from '@/api/ozon/business';
 import type {BusinessRow,BusinessQuery,BusinessCustomField,FilterCondition} from '@/api/ozon/business';
 import {useUserStore} from '@/store/modules/user';
 import {useOzonShopStore} from '@/store/modules/ozonShop';
@@ -107,6 +113,7 @@ import type {BusinessField} from './config';
 import {gridColumnWidth,canSumColumn,sumRowValues,formatNumericColumn} from '../components/columns';
 import AttachmentImages from '../components/AttachmentImages.vue';
 import ReferencePicker from './ReferencePicker.vue';
+import ReferenceDialog from './ReferenceDialog.vue';
 import ViewSelector from '../components/ViewSelector.vue';
 import ViewOrdering from '../components/ViewOrdering.vue';
 import FilterBuilder from '../components/FilterBuilder.vue';
@@ -116,6 +123,11 @@ const props=defineProps<{table:string}>();const config=businessConfig[props.tabl
 const shopStore=useOzonShopStore();
 const permission=(action:string)=>'ozon:'+config.endpoint.replace(/-([a-z])/g,(_,letter:string)=>letter.toUpperCase())+':'+action;
 const storageKey='ozon:business:v1:'+useUserStore().userId+':'+props.table;
+/** 表格内新增的草稿行：不落库，确认后才提交，编号在插入时预览。 */
+const NEW_ROW_KEY='__new__';
+/** 各业务表的自动编号字段，与后端 OzonBusinessSupport.auto 保持一致。 */
+const autoNumberProps:Record<string,string>={product:'productNo',replenishment:'replenishNo',shipment:'shipmentNo',logistics_fee:'feeNo',other_fee:'feeNo',logistics_provider:'code',payment_receipt:'code'};
+const numberProp=autoNumberProps[props.table];
 const saved=readPreference(storageKey);
 const customFields=ref<BusinessCustomField[]>([]);
 const allColumns=computed<BusinessField[]>(()=>[...config.columns,...customFields.value.map(field=>({prop:'custom_'+field.id,label:field.label,width:180,customId:field.id,numeric:field.type==='number',decimal:field.type==='number',precision:field.type==='number'?2:undefined})),{prop:'__actions',label:'操作',width:145}]);
@@ -221,7 +233,6 @@ watch([groups,sorts],()=>{if(groups.value.length||sorts.value.length)query.manua
 const summableColumns=computed(()=>visibleColumns.value.filter(canSumColumn));
 const rowNumbers=computed(()=>new Map(rows.value.map((row,index)=>[String(row.id),(query.pageNum-1)*query.pageSize+index+1])));
 const displayRows=computed<BusinessRow[]>(()=>{
-  if(!rows.value.length)return [];
   const result:BusinessRow[]=[];
   const groupValues=(row:BusinessRow)=>groups.value.map(g=>String(row[g.field]??''));
   let previous:string[]=[];
@@ -240,6 +251,7 @@ const displayRows=computed<BusinessRow[]>(()=>{
     });
     result.push(row);previous=values;
   });
+  if(drafts[NEW_ROW_KEY])result.unshift(drafts[NEW_ROW_KEY]);
   return result;
 });
 function summaryMethod({columns}:{columns:Array<{property?:string}>}):string[]{
@@ -269,20 +281,59 @@ async function createCustomColumn(){if(customColumnSaving.value)return;const nam
 async function deleteColumnFromMenu(){const field=columnMenu.value?.field;closeRowMenu();if(!field||(!field.customId&&(protectedFieldProps.has(field.prop)||field.multiple)))return;try{await ElMessageBox.confirm('永久删除“'+field.label+'”字段及本表全部历史值？此操作无法撤销。','删除字段',{type:'warning',confirmButtonText:'永久删除',cancelButtonText:'取消'});}catch{return;}try{if(field.customId)await removeBusinessCustomField(config.endpoint,field.customId);else await removeBusinessField(config.endpoint,field.prop);ElMessage.success('字段已永久删除');await getList();}catch{ElMessage.error('字段删除失败：系统字段或非空字段需要单独调整结构');}}
 function beginCustomCell(row:BusinessRow,field:BusinessField){if(!field.customId||!checkPermi([permission('edit')])||customSaving.value)return;if(customEdit.value?.rowId===String(row.id)&&customEdit.value.fieldId===field.customId)return;customEdit.value={rowId:String(row.id),fieldId:field.customId,value:String(row[field.prop]??'')};void nextTick(()=>{const input=tableViewport.value?.querySelector('.custom-cell.is-draft input') as HTMLInputElement|null;input?.focus();input?.select();});}
 async function saveCustomCell(row:BusinessRow,field:BusinessField){const draft=customEdit.value;if(!field.customId||!draft||draft.rowId!==String(row.id)||draft.fieldId!==field.customId||customSaving.value)return;customSaving.value=true;try{await saveBusinessCustomValue(config.endpoint,field.customId,String(row.id),draft.value);row[field.prop]=draft.value||null;customEdit.value=null;}catch{ElMessage.error('字段保存失败，请检查输入内容后重试');}finally{customSaving.value=false;}}
-function onRowContextMenu(row:BusinessRow,_column:unknown,event:MouseEvent){if(row.__group||(!checkPermi([permission('add')])&&!checkPermi([permission('remove')])))return;event.preventDefault();rowMenu.value={row,x:Math.max(8,Math.min(event.clientX,window.innerWidth-190)),y:Math.max(8,Math.min(event.clientY,window.innerHeight-130))};}
-function insertAtRow(placement:'above'|'below'){const row=rowMenu.value?.row;closeRowMenu();if(!row)return;openAdd();pendingInsert.value={anchorId:row.id,placement};}
+function onRowContextMenu(row:BusinessRow,_column:unknown,event:MouseEvent){if(row.__group||row.__new||(!checkPermi([permission('add')])&&!checkPermi([permission('remove')])))return;event.preventDefault();rowMenu.value={row,x:Math.max(8,Math.min(event.clientX,window.innerWidth-190)),y:Math.max(8,Math.min(event.clientY,window.innerHeight-130))};}
+function insertAtRow(placement:'above'|'below'){const row=rowMenu.value?.row;closeRowMenu();if(!row||row.__group||row.__new)return;void openAdd({anchorId:row.id,placement});}
 async function deleteRowFromMenu(){const row=rowMenu.value?.row;closeRowMenu();if(!row||rowBusy[row.id])return;await removeRow(row);}
-function openAdd(){pendingInsert.value=null;form.value=Object.fromEntries(activeFields.value.map(f=>[f.prop,f.multiple?[]:f.default??null]));if(shopStore.selectedId&&activeFields.value.some(f=>f.prop==='shopId'))form.value.shopId=shopStore.selectedId;if(props.table==='attachment')form.value.sourceTable='product';editing.value=false;dialogOpen.value=true;}
+/** 新增：直接在表格里插入一行草稿行，编号即时预览，填完点右侧确认才落库。 */
+async function openAdd(anchor?:{anchorId:string|number;placement:'above'|'below'}){
+ if(!canAdd.value)return;
+ if(drafts[NEW_ROW_KEY]){ElMessage.warning('请先确认或取消当前新增行');return;}
+ pendingInsert.value=anchor??null;
+ const draft:BusinessRow={id:NEW_ROW_KEY,__new:true,__key:NEW_ROW_KEY};
+ for(const field of activeFields.value)draft[field.prop]=field.multiple?[]:(field.default??null);
+ if(shopStore.selectedId&&activeFields.value.some(f=>f.prop==='shopId')){draft.shopId=String(shopStore.selectedId);draft.shopIdLabel=shopStore.selectedName;}
+ if(props.table==='attachment')draft.sourceTable='product';
+ drafts[NEW_ROW_KEY]=draft;
+ if(numberProp){try{draft[numberProp]=(await nextBusinessNumber(config.endpoint)).data;}catch{/* 预览失败不影响填写，保存时后端仍会生成编号 */}}
+ await nextTick();
+ (tableViewport.value?.querySelector('.el-table__body-wrapper .el-scrollbar__wrap') as HTMLElement|null)?.scrollTo({top:0});
+ (tableViewport.value?.querySelector('.business-new-row input') as HTMLInputElement|null)?.focus();
+}
+/** 新增行按各字段的必填与类型规则校验后提交，编号由后端最终生成。 */
+async function confirmNewRow(){
+ const draft=drafts[NEW_ROW_KEY];
+ if(!draft||rowBusy[NEW_ROW_KEY]||!canAdd.value)return;
+ const payload:BusinessRow={};
+ for(const field of activeFields.value){
+  const value=draft[field.prop];
+  if(field.required&&(value==null||String(value).trim()===''||(Array.isArray(value)&&!value.length))){ElMessage.error('请填写'+field.label);return;}
+  if(field.numeric&&!field.reference&&value!==null&&value!==undefined&&value!==''&&!/^-?\d+(\.\d+)?$/.test(String(value))){ElMessage.error(field.label+'必须是有效数值');return;}
+  payload[field.prop]=value===''?null:value;
+ }
+ rowBusy[NEW_ROW_KEY]=true;
+ let addedId:string|number|undefined;
+ try{
+  addedId=(await addBusiness(config.endpoint,payload)).data as string|number;
+  if(pendingInsert.value&&addedId){await placeBusinessRow(config.endpoint,addedId,pendingInsert.value.anchorId,pendingInsert.value.placement);query.manualOrder=true;groups.value=[];sorts.value=[];}
+  ElMessage.success('新增成功');delete drafts[NEW_ROW_KEY];pendingInsert.value=null;await getList();
+ }catch{
+  if(addedId){ElMessage.warning('记录已保存，但指定位置失败；请刷新后重试');delete drafts[NEW_ROW_KEY];pendingInsert.value=null;dialogOpen.value=false;await getList();}
+  else ElMessage.error('保存失败，请检查必填字段');
+ }finally{rowBusy[NEW_ROW_KEY]=false;}
+}
+function cancelNewRow(){if(rowBusy[NEW_ROW_KEY])return;delete drafts[NEW_ROW_KEY];pendingInsert.value=null;}
 
 const canEdit=computed(()=>checkPermi([permission('edit')]));
+const canAdd=computed(()=>checkPermi([permission('add')]));
 const drafts=reactive<Record<string,BusinessRow>>({});
 const rowBusy=reactive<Record<string,boolean>>({});
 const draftCount=computed(()=>Object.keys(drafts).length);
 watch(tableKey,bindHorizontalScroll);watch(rows,bindHorizontalScroll);
-function editable(field:BusinessField){return canEdit.value&&activeFields.value.some(f=>f.prop===field.prop&&!f.readonly);}
+function editable(field:BusinessField,row?:BusinessRow){return(row?.__new?canAdd.value:canEdit.value)&&activeFields.value.some(f=>f.prop===field.prop&&!f.readonly);}
 function inputField(field:BusinessField){return activeFields.value.find(f=>f.prop===field.prop)!;}
 async function beginCell(row:BusinessRow,field:BusinessField){
- if(!editable(field)||rowBusy[row.id]||drafts[row.id])return;
+ if(row.__new)return;
+ if(!editable(field,row)||rowBusy[row.id]||drafts[row.id])return;
  rowBusy[row.id]=true;
  try{
   const r=await getBusiness(config.endpoint,row.id);
@@ -328,8 +379,10 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();void getList();});let 
 .business-view{padding-top:0}
 .group-cell{display:inline-flex;align-items:baseline;gap:8px;white-space:nowrap}.group-name{font-size:14px;font-weight:600;color:var(--el-text-color-primary)}.group-name-secondary{font-size:13px;font-weight:400}.group-count{font-size:12px;font-weight:400;color:var(--el-text-color-secondary)}.group-sum{display:inline-flex;gap:4px;align-items:baseline;font-variant-numeric:tabular-nums}.sum-prefix{font-size:12px;font-weight:400;color:var(--el-text-color-secondary)}.sum-value{font-size:13px;font-weight:400;color:var(--el-text-color-primary)}
 .business-view :deep(.business-group-row td.el-table__cell){background:var(--el-fill-color-light)!important}
+.business-view :deep(.business-new-row td.el-table__cell){background:var(--el-color-primary-light-9)!important}
+.business-view :deep(.business-new-row .row-number-column){color:var(--el-color-primary);font-weight:600}
 
-.editable-cell{min-height:24px;cursor:text;display:flex;align-items:center}.editable-cell:hover{background:var(--el-color-primary-light-9)}.editable-cell.is-draft{background:var(--el-color-warning-light-9)}.editable-cell :deep(.el-input),.editable-cell :deep(.el-select),.editable-cell :deep(.el-date-editor){width:100%;min-width:0}.editable-cell :deep(.el-input__wrapper){padding:1px 4px}
+.editable-cell{min-height:24px;cursor:text;display:flex;align-items:center}.editable-cell:hover{background:var(--el-color-primary-light-9)}.editable-cell.is-draft{background:var(--el-color-warning-light-9)}.editable-cell.is-new-cell{background:none}.editable-cell.is-new-cell:hover{background:var(--el-color-primary-light-8)}.editable-cell :deep(.el-input),.editable-cell :deep(.el-select),.editable-cell :deep(.el-date-editor){width:100%;min-width:0}.editable-cell :deep(.el-input__wrapper){padding:1px 4px}
 
 .preset-filters{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}.preset-filters-label{font-size:12px;color:var(--el-text-color-secondary)}.business-view :deep(.business-group-row){--el-table-tr-bg-color:var(--el-fill-color-light);font-weight:400}
 .toolbar,.actions,.row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar.business-toolbar{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto}.business-toolbar h2,.business-toolbar .actions,.business-toolbar .count{flex:none}.business-toolbar .actions{flex-wrap:nowrap}.business-toolbar .count{margin-right:0;white-space:nowrap}.business-view :deep(.el-card__header){padding:6px 12px}.business-view :deep(.el-card__body){padding:2px 12px 12px}.toolbar{justify-content:space-between}h2{font-size:18px;margin:0}.count{font-size:12px;color:var(--el-text-color-secondary);margin-right:auto}.filters{max-height:60vh;overflow:auto;padding:4px 8px}.filters .el-form{margin-top:14px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}.form-grid :deep(.el-select),.form-grid :deep(.el-date-editor){width:100%}.row-actions{flex-wrap:nowrap;gap:2px}.row-actions :deep(.el-button){margin:0}.business-view :deep(.ozon-data-grid){--ozon-grid-text:#1f2329;--ozon-grid-heading:#1f2329;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Tahoma,'PingFang SC','Microsoft YaHei',Arial,'Hiragino Sans GB',sans-serif;font-size:14px;font-weight:400;line-height:20px;color:var(--ozon-grid-text);--el-table-text-color:var(--ozon-grid-text);--el-table-header-text-color:var(--ozon-grid-heading)}

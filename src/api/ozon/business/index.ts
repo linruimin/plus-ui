@@ -23,6 +23,8 @@ export const listRemovedBusinessFields = (endpoint:string):AxiosPromise<string[]
 export const removeBusinessField = (endpoint:string,prop:string) => request({url:'/ozon/business/removed-fields/'+endpoint+'/'+encodeURIComponent(prop),method:'delete'});
 export const placeBusinessRow = (endpoint:string,rowId:string|number,anchorId:string|number,placement:'above'|'below') => request({url:'/ozon/business/row-position/'+endpoint,method:'post',data:{rowId,anchorId,placement}});
 export const deleteBusiness = (endpoint:string,id:string|number,revision:string) => request({url:'/ozon/business/'+endpoint+'/'+id,method:'delete',params:{revision}});
+/** 表格内新增行时预览即将分配的编号（日期+三位序号），保存时由后端最终确定。 */
+export const nextBusinessNumber = (endpoint:string):AxiosPromise<number> => request({url:'/ozon/business/number/'+endpoint,method:'get'});
 
 
 /** 全局店铺覆盖视图原有的店铺条件，其余筛选保留；不修改视图快照。 */
