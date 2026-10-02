@@ -25,6 +25,16 @@ export const placeBusinessRow = (endpoint:string,rowId:string|number,anchorId:st
 export const deleteBusiness = (endpoint:string,id:string|number,revision:string) => request({url:'/ozon/business/'+endpoint+'/'+id,method:'delete',params:{revision}});
 /** 表格内新增行时预览即将分配的编号（日期+三位序号），保存时由后端最终确定。 */
 export const nextBusinessNumber = (endpoint:string):AxiosPromise<number> => request({url:'/ozon/business/number/'+endpoint,method:'get'});
+export interface BusinessAttachmentUpload { fileName:string; cosKey:string; cosUrl:string; sizeBytes:number; mimeType:string }
+/** 业务图片上传：选图即传对象存储，此时业务记录可能还不存在，登记在保存记录时一并完成。 */
+export const uploadBusinessAttachment = (file:File, params:{sourceTable:string; fieldName:string; fileName:string}):AxiosPromise<BusinessAttachmentUpload> => {
+ const data = new FormData();
+ data.append('file', file);
+ data.append('sourceTable', params.sourceTable);
+ data.append('fieldName', params.fieldName);
+ data.append('fileName', params.fileName);
+ return request({url:'/ozon/business/attachment/upload', method:'post', data, headers:{repeatSubmit:false}});
+};
 
 
 /** 全局店铺覆盖视图原有的店铺条件，其余筛选保留；不修改视图快照。 */

@@ -32,7 +32,9 @@
         <el-button v-if="drafts[row.id]" link :disabled="rowBusy[row.id]" @click="discardRow(row)">取消</el-button>
        </template>
       </div>
-      <AttachmentImages v-else-if="field.attachment" :value="row[field.prop]"/>
+      <div v-else-if="field.attachment" class="editable-cell attachment-cell" :class="{'is-draft':!!drafts[row.id]&&!row.__new,'is-new-cell':row.__new}" :title="attachmentTitle(row)">
+       <AttachmentUpload :files="attachmentList(row)" :editable="attachmentEditable(row)" :code="attachmentCode(row)" :source-table="table" :field-name="field.label" :ensure-draft="()=>ensureAttachmentDraft(row)" @update:files="setAttachments(row,$event)"/>
+      </div>
       <div v-else-if="field.customId" class="editable-cell custom-cell" :class="{'is-draft':customEdit?.rowId===String(row.id)&&customEdit?.fieldId===field.customId}" @click="beginCustomCell(row,field)">
        <el-input v-if="customEdit?.rowId===String(row.id)&&customEdit?.fieldId===field.customId" v-model="customEdit.value" :type="field.numeric?'number':'text'" :maxlength="1000" :disabled="customSaving" :aria-label="field.label" @keyup.enter="saveCustomCell(row,field)" @keyup.esc="customEdit=null" @blur="saveCustomCell(row,field)"/>
        <span v-else>{{ display(row,field) }}</span>
@@ -84,6 +86,7 @@
      <ReferenceDialog v-else-if="field.reference" v-model="form[field.prop]" :target="field.reference" :multiple="field.multiple"/>
      <el-select v-else-if="field.options" v-model="form[field.prop]" clearable><el-option v-for="option in field.options" :key="option" :label="option" :value="option"/></el-select>
      <el-date-picker v-else-if="field.type==='date'" v-model="form[field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" clearable/>
+     <AttachmentUpload v-else-if="field.type==='attachment'" :files="form.attachments||[]" editable :code="(numberProp?form[numberProp]:null)??form.id" :source-table="table" :field-name="field.label" @update:files="form.attachments=$event"/>
      <el-input v-else v-model="form[field.prop]" :type="field.type==='textarea'?'textarea':'text'" :maxlength="field.maxLength" :rows="3" :placeholder="field.prop==='boxSpec'?'长*宽*高（厘米），如60*40*30':field.numeric?'请输入数值':undefined" clearable/>
     </el-form-item></div>
    </el-form>
@@ -110,7 +113,8 @@ import {readPreference,writePreference,normalizeColumns,selectedColumns} from '.
 import {businessConfig} from './config';
 import type {BusinessField} from './config';
 import {gridColumnWidth,canSumColumn,sumRowValues,formatNumericColumn} from '../components/columns';
-import AttachmentImages from '../components/AttachmentImages.vue';
+import AttachmentUpload from '../components/AttachmentUpload.vue';
+import {attachmentFiles} from '../components/attachmentFiles';
 import ReferencePicker from './ReferencePicker.vue';
 import ReferenceDialog from './ReferenceDialog.vue';
 import ViewSelector from '../components/ViewSelector.vue';
@@ -293,7 +297,7 @@ async function openAdd(anchor?:{anchorId:string|number;placement:'above'|'below'
  if(shopStore.selectedId&&activeFields.value.some(f=>f.prop==='shopId')){draft.shopId=String(shopStore.selectedId);draft.shopIdLabel=shopStore.selectedName;}
  if(props.table==='attachment')draft.sourceTable='product';
  drafts[NEW_ROW_KEY]=draft;
- if(numberProp){try{draft[numberProp]=(await nextBusinessNumber(config.endpoint)).data;}catch{/* 预览失败不影响填写，保存时后端仍会生成编号 */}}
+ if(numberProp){try{drafts[NEW_ROW_KEY][numberProp]=(await nextBusinessNumber(config.endpoint)).data;}catch{/* 预览失败不影响填写，保存时后端仍会生成编号 */}}
  await nextTick();
  (tableViewport.value?.querySelector('.el-table__body-wrapper .el-scrollbar__wrap') as HTMLElement|null)?.scrollTo({top:0});
  (tableViewport.value?.querySelector('.business-new-row input') as HTMLInputElement|null)?.focus();
@@ -327,6 +331,33 @@ const canAdd=computed(()=>checkPermi([permission('add')]));
 const drafts=reactive<Record<string,BusinessRow>>({});
 const rowBusy=reactive<Record<string,boolean>>({});
 const draftCount=computed(()=>Object.keys(drafts).length);
+/** 附件字段：只有配置里 type==='attachment' 的表才有，用于单元格内直接上传。 */
+const attachmentField=computed(()=>activeFields.value.find(field=>field.type==='attachment'));
+/** 只保留后端认识的字段，避免展示用的 image 标记混进提交体。 */
+function toAttachmentPayload(value:unknown){return attachmentFiles(value).map(file=>({id:file.id,fileName:file.fileName,cosUrl:file.cosUrl}));}
+function attachmentList(row:BusinessRow){const draft=drafts[row.id];return draft&&Array.isArray(draft.attachments)?draft.attachments:toAttachmentPayload(row.attachmentJson);}
+function attachmentEditable(row:BusinessRow){if(!attachmentField.value||!checkPermi(['ozon:attachment:add']))return false;return row.__new?canAdd.value:canEdit.value;}
+/** 附件命名用的业务编号：草稿行取即时预览的编号，取不到时返回 null（由控件退化为时间戳命名），绝不用 __new__ 当文件名。 */
+function attachmentCode(row:BusinessRow){
+ if(!numberProp)return row.__new?null:row.id??null;
+ const draft=drafts[row.id];
+ const value=(draft&&draft[numberProp])??row[numberProp];
+ return value===null||value===undefined||value===''||value===NEW_ROW_KEY?null:value;
+}
+function attachmentTitle(row:BusinessRow){return attachmentEditable(row)?'png / jpg / webp，单张不超过 10MB；上传后需保存本行':'暂无可编辑权限';}
+function setAttachments(row:BusinessRow,next:unknown[]){const draft=drafts[row.id];if(draft)draft.attachments=next;}
+/** 上传前确保该行进入编辑状态：附件要挂在草稿行上暂存，保存时才写入附件表。 */
+async function ensureAttachmentDraft(row:BusinessRow){
+ if(row.__new)return !!drafts[NEW_ROW_KEY];
+ if(drafts[row.id])return true;
+ const field=attachmentField.value;
+ if(!field||!editable(field,row)||rowBusy[row.id])return false;
+ await beginCell(row,field);
+ const draft=drafts[row.id];
+ if(!draft)return false;
+ if(!Array.isArray(draft.attachments))draft.attachments=toAttachmentPayload(row.attachmentJson);
+ return true;
+}
 watch(tableKey,bindHorizontalScroll);watch(rows,bindHorizontalScroll);
 function editable(field:BusinessField,row?:BusinessRow){return(row?.__new?canAdd.value:canEdit.value)&&activeFields.value.some(f=>f.prop===field.prop&&!f.readonly);}
 function inputField(field:BusinessField){return activeFields.value.find(f=>f.prop===field.prop)!;}
@@ -381,7 +412,7 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();void getList();});let 
 .business-view :deep(.business-new-row td.el-table__cell){background:var(--el-color-primary-light-9)!important}
 .business-view :deep(.business-new-row .row-number-column){color:var(--el-color-primary);font-weight:600}
 
-.editable-cell{min-height:24px;cursor:text;display:flex;align-items:center}.editable-cell:hover{background:var(--el-color-primary-light-9)}.editable-cell.is-draft{background:var(--el-color-warning-light-9)}.editable-cell.is-new-cell{background:none}.editable-cell.is-new-cell:hover{background:var(--el-color-primary-light-8)}.editable-cell :deep(.el-input),.editable-cell :deep(.el-select),.editable-cell :deep(.el-date-editor){width:100%;min-width:0}.editable-cell :deep(.el-input__wrapper){padding:1px 4px}
+.editable-cell{min-height:24px;cursor:text;display:flex;align-items:center}.editable-cell:hover{background:var(--el-color-primary-light-9)}.editable-cell.is-draft{background:var(--el-color-warning-light-9)}.editable-cell.is-new-cell{background:none}.editable-cell.is-new-cell:hover{background:var(--el-color-primary-light-8)}.attachment-cell{cursor:default;gap:4px}.editable-cell :deep(.el-input),.editable-cell :deep(.el-select),.editable-cell :deep(.el-date-editor){width:100%;min-width:0}.editable-cell :deep(.el-input__wrapper){padding:1px 4px}
 
 .preset-filters{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}.preset-filters-label{font-size:12px;color:var(--el-text-color-secondary)}.business-view :deep(.business-group-row){--el-table-tr-bg-color:var(--el-fill-color-light);font-weight:400}
 .toolbar,.actions,.row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar.business-toolbar{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto}.business-toolbar .actions,.business-toolbar .count{flex:none}.business-toolbar .actions{flex-wrap:nowrap}.business-toolbar .count{margin-right:0;white-space:nowrap}.business-view :deep(.el-card__header){padding:6px 12px}.business-view :deep(.el-card__body){padding:2px 12px 12px}.toolbar{justify-content:space-between}.count{font-size:12px;color:var(--el-text-color-secondary);margin-right:auto}.filters{max-height:60vh;overflow:auto;padding:4px 8px}.filters .el-form{margin-top:14px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}.form-grid :deep(.el-select),.form-grid :deep(.el-date-editor){width:100%}.row-actions{flex-wrap:nowrap;gap:2px}.row-actions :deep(.el-button){margin:0}.business-view :deep(.ozon-data-grid){--ozon-grid-text:#1f2329;--ozon-grid-heading:#1f2329;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Tahoma,'PingFang SC','Microsoft YaHei',Arial,'Hiragino Sans GB',sans-serif;font-size:14px;font-weight:400;line-height:20px;color:var(--ozon-grid-text);--el-table-text-color:var(--ozon-grid-text);--el-table-header-text-color:var(--ozon-grid-heading)}

@@ -143,8 +143,17 @@
         "type": "textarea",
         "required": false,
         "maxLength": 10000
+      },
+      {
+        "prop": "attachments",
+        "label": "货品图片",
+        "width": 150,
+        "numeric": false,
+        "type": "attachment",
+        "required": false,
+        "multiple": true
       }
-    ],
+     ],
     "columns": [
       {
         "prop": "id",
@@ -1550,8 +1559,17 @@
         "reference": "shipment",
         "multiple": true,
         "width": 220
+      },
+      {
+        "prop": "attachments",
+        "label": "附件",
+        "width": 150,
+        "numeric": false,
+        "type": "attachment",
+        "required": false,
+        "multiple": true
       }
-    ],
+     ],
     "columns": [
       {
         "prop": "id",
@@ -1770,8 +1788,17 @@
         "type": "textarea",
         "required": false,
         "maxLength": 10000
+      },
+      {
+        "prop": "attachments",
+        "label": "附件",
+        "width": 150,
+        "numeric": false,
+        "type": "attachment",
+        "required": false,
+        "multiple": true
       }
-    ],
+     ],
     "columns": [
       {
         "prop": "id",
@@ -1936,8 +1963,17 @@
         "type": "text",
         "required": false,
         "maxLength": 255
+      },
+      {
+        "prop": "attachments",
+        "label": "跨境运费",
+        "width": 150,
+        "numeric": false,
+        "type": "attachment",
+        "required": false,
+        "multiple": true
       }
-    ],
+     ],
     "columns": [
       {
         "prop": "id",
@@ -2306,8 +2342,17 @@
         "type": "textarea",
         "required": false,
         "maxLength": 10000
+      },
+      {
+        "prop": "attachments",
+        "label": "水单",
+        "width": 150,
+        "numeric": false,
+        "type": "attachment",
+        "required": false,
+        "multiple": true
       }
-    ],
+     ],
     "columns": [
       {
         "prop": "id",
