@@ -15,11 +15,11 @@
                 <h3>{{ title }}</h3><p class="panel-description">{{ description }}</p>
                 <el-form-item v-if="kind === 'supply'" label="申请状态"><el-select v-model="query.status" clearable placeholder="全部状态"><el-option label="已完成" value="已完成"/><el-option label="全部状态" value=""/></el-select></el-form-item>
       <el-form :model="query" label-position="top" class="panel-filters" @submit.prevent="applyFilters">
-        <el-form-item v-if="kind === 'monthly'" label="统计月份">
+        <el-form-item v-if="kind === 'monthly' || kind === 'returns-report'" :label="kind === 'returns-report' ? '退货月份' : '统计月份'">
           <el-date-picker v-model="query.reportMonth" type="month" value-format="YYYY-MM-01" placeholder="全部月份" clearable />
         </el-form-item>
         <template v-if="kind !== 'accruals'">
-          <el-form-item :label="kind === 'supply' ? 'ItemCode' : '卖家SKU'"><el-input v-model="query.sellerSku" placeholder="精确匹配" maxlength="255" clearable @keyup.enter="handleQuery" /></el-form-item>
+          <el-form-item :label="kind === 'supply' ? 'ItemCode' : kind === 'returns-report' ? '货号' : '卖家SKU'"><el-input v-model="query.sellerSku" placeholder="精确匹配" maxlength="255" clearable @keyup.enter="handleQuery" /></el-form-item>
           <el-form-item label="Ozon SKU"><el-input v-model="query.ozonSku" placeholder="完整数字 SKU" maxlength="20" clearable @keyup.enter="handleQuery" /></el-form-item>
           <el-form-item label="商品名称"><el-input v-model="query.productName" placeholder="商品关键字" maxlength="200" clearable @keyup.enter="handleQuery" /></el-form-item>
         </template>
@@ -37,6 +37,8 @@
       <el-alert v-if="kind === 'accruals'" title="销售额为正金额合计，应计费用保留负号；总计＝销售额＋应计费用。总计-税后＝总计－销售额×0.075；总计-人民币＝总计-税后×0.075。两列计算金额显示2位小数，按未舍入值计算；空编号不展示。" type="info" :closable="false" class="notice" />
       <el-alert v-if="kind === 'monthly'" :title="query.groupBy === 'month' ? '同一月份归为一组，默认按最终到手（RUB）倒序。点击表头可切换组内排序。' : '同一卖家 SKU 归为一组，默认按统计月份倒序。点击表头可切换组内排序。'" type="info" :closable="false" class="notice" />
                 <p v-if="kind === 'monthly'" class="panel-description">分组标题展示当前页记录，同一组跨页时继续展示。</p>
+                <el-alert v-if="kind === 'returns-report'" title="退货件数按「退货日期」归月；退货率＝退货件数 ÷ 同月同 SKU 售出件数（售出件数取自产品月报，无对应月份时留空）。销毁件数含「销毁中 / 已核销商品」。货值合计＝报表「最高价格」求和。" type="info" :closable="false" class="notice" />
+                <p v-if="kind === 'returns-report'" class="panel-description">一行 = 一个「退货月份 × SKU」，同一月份或同一 SKU 的记录在分组时相邻展示。</p>
               </div>
             </el-popover>
             <ViewOrdering v-if="accrualView !== 'chart'" v-model:groups="orderGroups" v-model:sorts="orderSorts" :columns="orderColumns" :group-columns="orderGroupColumns" :max-groups="1" :max-sorts="1" :label="kind === 'accruals' ? '分组 / 排序' : undefined" @change="handleOrderChange" />
@@ -100,9 +102,9 @@ const shopStore = useOzonShopStore();
 const basePreferenceKey = 'ozon:views:v1:' + useUserStore().userId + ':' + (props.preferenceKey || (props.trendOnly ? 'trend' : props.kind));
 const savedGroup = readPreference(basePreferenceKey).groupBy === 'sku' ? 'sku' : 'month';
 const storageWarning = ref(false);
-const titles = { monthly: '产品月报', accruals: '订单费用明细', supply: '交货申请明细' };
+const titles = { monthly: '产品月报', accruals: '订单费用明细', supply: '交货申请明细', 'returns-report': '退货报表' };
 const title = computed(() => props.trendOnly ? '产品销售趋势' : titles[kind.value]);
-const description = computed(() => kind.value === 'monthly' ? '按月份或卖家 SKU 查看产品收入与最终到手金额。' : kind.value === 'accruals' ? '按应计费用编号汇总正负金额，展开可查看全部原始记录。' : '按原视图筛选、分组查询交货商品记录。');
+const description = computed(() => kind.value === 'monthly' ? '按月份或卖家 SKU 查看产品收入与最终到手金额。' : kind.value === 'accruals' ? '按应计费用编号汇总正负金额，展开可查看全部原始记录。' : kind.value === 'returns-report' ? '按退货月份和商品汇总退货件数、退货率与退货相关费用。' : '按原视图筛选、分组查询交货商品记录。');
 const columns = computed(() => reportColumns[kind.value]);
 const query = reactive<ReportQuery>({ pageNum: 1, pageSize: 100, groupBy: savedGroup });
 const dateRange = ref<string[]>([]);
@@ -175,16 +177,19 @@ const orderColumns = computed<ReportColumn[]>(() => columns.value.filter(c => !c
 const orderGroupColumns = computed<ReportColumn[]>(() => {
   if (kind.value === 'monthly') return orderColumns.value.filter(c => c.prop === 'reportMonth' || c.prop === 'sellerSku');
   if (kind.value === 'supply') return orderColumns.value.filter(c => c.prop === 'sku');
+  if (kind.value === 'returns-report') return orderColumns.value.filter(c => c.prop === 'reportMonth' || c.prop === 'sku');
   return [];
 });
 function groupFieldOf() {
   if (kind.value === 'monthly') return query.groupBy === 'month' ? 'reportMonth' : query.groupBy === 'sku' ? 'sellerSku' : '';
   if (kind.value === 'supply') return query.groupBy === 'sku' ? 'sku' : '';
+  if (kind.value === 'returns-report') return query.groupBy === 'month' ? 'reportMonth' : query.groupBy === 'sku' ? 'sku' : '';
   return '';
 }
 function groupByOf(field: string) {
   if (kind.value === 'monthly') return field === 'reportMonth' ? 'month' : field === 'sellerSku' ? 'sku' : 'none';
   if (kind.value === 'supply') return field === 'sku' ? 'sku' : 'none';
+  if (kind.value === 'returns-report') return field === 'reportMonth' ? 'month' : field === 'sku' ? 'sku' : 'none';
   return 'none';
 }
 const orderGroups = computed<ViewOrder[]>({
@@ -206,17 +211,21 @@ const tableKey = computed(() => [kind.value, query.groupBy, query.orderByColumn,
 const summableColumns = computed(() => tableColumns.value.filter(canSumColumn));
 const rowNumbers=computed(()=>new Map(rows.value.map((row,index)=>[rowKey(row),(query.pageNum-1)*query.pageSize+index+1])));
 watch(tableKey,bindHorizontalScroll);watch(rows,bindHorizontalScroll);
+/** 分组键：交货申请与退货报表取 SKU 列，产品月报取卖家 SKU。 */
+const groupKeyOf = (item: ReportRow) => String((kind.value === 'supply' || kind.value === 'returns-report' ? item.sku : item.sellerSku) ?? '未填写SKU');
+const monthKeyOf = (item: ReportRow) => String(item.reportMonth ?? '').slice(0, 7);
 const displayRows = computed<ReportRow[]>(() => {
   if (!rows.value.length) return [];
-  const grouped = ['monthly', 'supply'].includes(kind.value) && query.groupBy !== 'none' && (kind.value !== 'supply' || query.groupBy === 'sku');
+  const grouped = ['monthly', 'supply', 'returns-report'].includes(kind.value) && query.groupBy !== 'none' && (kind.value !== 'supply' || query.groupBy === 'sku');
+  const keyOf = query.groupBy === 'sku' ? groupKeyOf : monthKeyOf;
   const result: ReportRow[] = [];
   let previous = '';
   rows.value.forEach((row, index) => {
     if (grouped) {
-      const group = query.groupBy === 'sku' ? String((kind.value === 'supply' ? row.sku : row.sellerSku) ?? '未填写SKU') : String(row.reportMonth ?? '').slice(0, 7);
+      const group = keyOf(row);
       if (index === 0 || group !== previous) {
         let end = index + 1;
-        while (end < rows.value.length && (query.groupBy === 'sku' ? String((kind.value === 'supply' ? rows.value[end].sku : rows.value[end].sellerSku) ?? '未填写SKU') : String(rows.value[end].reportMonth ?? '').slice(0, 7)) === group) end++;
+        while (end < rows.value.length && keyOf(rows.value[end]) === group) end++;
         const label = group + ' · ' + (end - index) + '条';
         result.push({ ...sumRowValues(rows.value.slice(index, end), summableColumns.value), __key: 'group:' + index, __group: label, __groupName: group, __count: end - index, __groupTitle: (query.groupBy === 'sku' ? 'SKU：' : '统计月份：') + label });
         previous = group;
@@ -236,7 +245,7 @@ function summaryMethod({ columns }: { columns: Array<{ property?: string }> }): 
     return column.property === first ? '本页合计 · ' + rows.value.length + '条' + (value ? ' · ' + value : '') : value;
   });
 }
-function rowKey(row: ReportRow) { return String(row.__key ?? row.rowId ?? row.id); }
+function rowKey(row: ReportRow) { return String(row.__key ?? row.rowId ?? row.id ?? [row.reportMonth ?? '', row.sku ?? '', row.articleNo ?? '', row.shopId ?? ''].join('|')); }
 function rowClass({ row }: { row: ReportRow }) { return row.__group ? 'report-group-row' : ''; }
 function display(value: ReportRow[string], column: ReportColumn) {
   if (value === null || value === undefined || value === '') return '—';
@@ -245,7 +254,7 @@ function display(value: ReportRow[string], column: ReportColumn) {
   return String(value);
 }
 function setDefaultSort() {
-  query.orderByColumn = kind.value === 'monthly' ? (query.groupBy === 'sku' ? 'reportMonth' : 'finalTakeHomeRub') : (kind.value === 'accruals' ? 'accrualDate' : 'completionDate');
+  query.orderByColumn = kind.value === 'monthly' ? (query.groupBy === 'sku' ? 'reportMonth' : 'finalTakeHomeRub') : (kind.value === 'accruals' ? 'accrualDate' : kind.value === 'returns-report' ? 'returnQty' : 'completionDate');
   query.isAsc = 'desc';
 }
 async function getList() {
@@ -330,7 +339,7 @@ function applySavedView(snapshot: ViewSnapshot) {
   const saved = snapshot.query || {};
   for (const key of Object.keys(query)) Reflect.deleteProperty(query, key);
   Object.assign(query, { pageNum: 1, pageSize: 100,
-    groupBy: ['month', 'sku', 'none'].includes(saved.groupBy) ? saved.groupBy : (kind.value === 'monthly' ? 'month' : 'none'),
+    groupBy: ['month', 'sku', 'none'].includes(saved.groupBy) ? saved.groupBy : (kind.value === 'monthly' || kind.value === 'returns-report' ? 'month' : 'none'),
     groupDesc: saved.groupDesc === true,
     ...(kind.value === 'supply' ? { status: '已完成' } : {}) });
   setDefaultSort();

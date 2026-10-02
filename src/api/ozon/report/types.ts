@@ -1,4 +1,4 @@
-export type ReportKind = 'monthly' | 'accruals' | 'supply';
+export type ReportKind = 'monthly' | 'accruals' | 'supply' | 'returns-report';
 
 export interface ReportQuery extends PageQuery {
   groupBy?: 'month' | 'sku' | 'none';
@@ -88,8 +88,7 @@ export interface OzonSupplyReportVO extends ReportRow {
   ozonOrderUrl: string | null;
 }
 
-/** 当前筛选范围内的产品月度销售额。 */
-export interface ProductSalesTrend {
+/** 当前筛选范围内的产品月度销售额。 */export interface ProductSalesTrend {
   productKey: string;
   productName: string;
   sellerSku?: string;

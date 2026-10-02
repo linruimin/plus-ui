@@ -2081,6 +2081,133 @@
       }
     }
   ],
+  "returns-report": [
+    {
+      "id": "vewRtMonth",
+      "name": "按月分析",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "groupBy": "month",
+          "groupDesc": true,
+          "orderByColumn": "returnQty",
+          "isAsc": "desc"
+        },
+        "columns": {
+          "order": [
+            "attachmentJson",
+            "reportMonth",
+            "localProductName",
+            "articleNo",
+            "returnQty",
+            "shipmentCount",
+            "soldUnits",
+            "returnRate",
+            "disposalCount",
+            "maxPriceRub",
+            "disposalFeeRub",
+            "storageFeeRub"
+          ],
+          "hidden": [
+            "sku",
+            "processedCount",
+            "pendingCount",
+            "avgStorageDays",
+            "firstReturnDate",
+            "lastReturnDate",
+            "shopName",
+            "ozonProductName"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "reportMonth",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "returnQty",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "vewRtSku",
+      "name": "按货号分析",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "groupBy": "sku",
+          "groupDesc": true,
+          "orderByColumn": "reportMonth",
+          "isAsc": "desc"
+        },
+        "columns": {
+          "order": [
+            "attachmentJson",
+            "localProductName",
+            "articleNo",
+            "sku",
+            "reportMonth",
+            "returnQty",
+            "shipmentCount",
+            "soldUnits",
+            "returnRate",
+            "disposalCount"
+          ],
+          "hidden": [
+            "processedCount",
+            "pendingCount",
+            "maxPriceRub",
+            "disposalFeeRub",
+            "storageFeeRub",
+            "avgStorageDays",
+            "firstReturnDate",
+            "lastReturnDate",
+            "shopName",
+            "ozonProductName"
+          ],
+          "fixed": {}
+        },
+        "groups": [
+          {
+            "field": "sku",
+            "desc": true
+          }
+        ],
+        "sorts": [
+          {
+            "field": "reportMonth",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "vewRtAll",
+      "name": "全部明细",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "groupBy": "none",
+          "groupDesc": true,
+          "orderByColumn": "reportMonth",
+          "isAsc": "desc"
+        },
+        "columns": {
+          "order": [],
+          "hidden": [],
+          "fixed": {}
+        }
+      }
+    }
+  ],
   "accruals": [
     {
       "id": "all",

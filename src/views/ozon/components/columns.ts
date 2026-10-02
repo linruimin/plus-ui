@@ -323,6 +323,29 @@ export const reportColumns: Record<string, ReportColumn[]> = {
       "width": 82.5
     }
   ],
+  // 退货报表：一行 = 一个「退货月份 × SKU（货号）」，数据来自 ozon_returns 明细汇总。
+  "returns-report": [
+    { prop: 'attachmentJson', label: '货品图片', width: 124, attachment: true },
+    { prop: 'reportMonth', label: '退货月份', width: 105 },
+    { prop: 'localProductName', label: '品名', width: 170 },
+    { prop: 'articleNo', label: '货号', width: 150 },
+    { prop: 'sku', label: 'Ozon SKU', width: 110 },
+    { prop: 'returnQty', label: '退货件数', width: 87, numeric: true },
+    { prop: 'shipmentCount', label: '退货货件数', width: 100, numeric: true },
+    { prop: 'soldUnits', label: '售出件数', width: 87, numeric: true },
+    { prop: 'returnRate', label: '退货率(%)', width: 87, decimal: true, precision: 2, numeric: true },
+    { prop: 'processedCount', label: '已处理件数', width: 100, numeric: true },
+    { prop: 'pendingCount', label: '未完结件数', width: 100, numeric: true },
+    { prop: 'disposalCount', label: '销毁件数', width: 87, numeric: true },
+    { prop: 'maxPriceRub', label: '货值合计（RUB）', width: 110, decimal: true, precision: 2, numeric: true },
+    { prop: 'disposalFeeRub', label: '销毁费用（RUB）', width: 110, decimal: true, precision: 2, numeric: true },
+    { prop: 'storageFeeRub', label: '仓储费用（RUB）', width: 110, decimal: true, precision: 2, numeric: true },
+    { prop: 'avgStorageDays', label: '平均存储天数', width: 105, decimal: true, precision: 1, numeric: true },
+    { prop: 'firstReturnDate', label: '首次退货日期', width: 155 },
+    { prop: 'lastReturnDate', label: '最近退货日期', width: 155 },
+    { prop: 'shopName', label: '店铺', width: 120 },
+    { prop: 'ozonProductName', label: 'Ozon商品名', width: 200 }
+  ],
   "accrualLines": [
     {
       "prop": "shopName",
