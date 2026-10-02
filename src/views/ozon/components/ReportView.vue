@@ -4,20 +4,13 @@
       <template #header>
         <div ref="toolbarRef" class="table-toolbar">
           <div class="view-controls">
-            <ViewSelector v-if="!trendOnly" :model-value="viewManager.activeId.value" :views="viewManager.views.value" @select="selectSavedView" @action="savedViewAction" />
-            <el-radio-group v-if="kind === 'monthly'" v-model="query.groupBy" size="small" @change="changeView">
-              <el-radio-button value="month">按月分组</el-radio-button>
-              <el-radio-button value="sku">按卖家 SKU 分组</el-radio-button><el-radio-button value="none">不分组</el-radio-button>
-            </el-radio-group>
-            <el-radio-group v-if="kind === 'supply'" v-model="query.groupBy" size="small" @change="handleQuery"><el-radio-button value="sku">按货品分析</el-radio-button><el-radio-button value="none">不分组</el-radio-button></el-radio-group>
-            <el-select v-if="(kind === 'monthly' || kind === 'supply') && query.groupBy !== 'none'" v-model="query.groupDesc" style="width:110px" aria-label="分组顺序" @change="handleQuery"><el-option :value="false" label="分组正序"/><el-option :value="true" label="分组倒序"/></el-select>
             <el-tag v-if="kind === 'accruals' && shopStore.selectedName" type="primary" size="small">{{ shopStore.selectedName }}</el-tag>
+            <ViewSelector v-if="!trendOnly" :model-value="viewManager.activeId.value" :views="viewManager.views.value" @select="selectSavedView" @action="savedViewAction" />
             <span v-if="accrualView !== 'chart'" class="record-count">共 {{ total.toLocaleString() }} 条</span>
           </div>
           <div class="view-actions">
-            <ColumnSettings v-if="!trendOnly" v-model="columnState" :columns="allTableColumns" />
             <el-popover v-model:visible="filterOpen" trigger="click" placement="bottom-end" :width="panelWidth" :persistent="false">
-              <template #reference><el-button icon="Filter" :type="hasFilters ? 'primary' : 'default'" plain @click="sortOpen = false">筛选</el-button></template>
+              <template #reference><el-button icon="Filter" :type="hasFilters ? 'primary' : 'default'" plain>筛选</el-button></template>
               <div class="report-panel">
                 <h3>{{ title }}</h3><p class="panel-description">{{ description }}</p>
                 <el-form-item v-if="kind === 'supply'" label="申请状态"><el-select v-model="query.status" clearable placeholder="全部状态"><el-option label="已完成" value="已完成"/><el-option label="全部状态" value=""/></el-select></el-form-item>
@@ -46,23 +39,8 @@
                 <p v-if="kind === 'monthly'" class="panel-description">分组标题展示当前页记录，同一组跨页时继续展示。</p>
               </div>
             </el-popover>
-            <el-popover v-if="accrualView !== 'chart'" v-model:visible="sortOpen" trigger="click" placement="bottom-end" :width="Math.min(360, panelWidth)" :persistent="false">
-              <template #reference><el-button icon="Sort" @click="filterOpen = false">排序</el-button></template>
-              <div class="report-panel">
-                <h3>{{ kind === 'monthly' ? viewTitle + ' · 组内排序' : '排序' }}</h3>
-                <p class="panel-description">选择字段和方向后自动生效，也可点击表头排序。</p>
-
-          <div class="sort-controls">
-            <span>{{ kind === 'monthly' ? '组内排序' : '排序' }}</span>
-            <el-select v-model="query.orderByColumn" aria-label="排序字段" style="width: 190px" @change="handleQuery">
-              <el-option v-for="column in columns.filter(c => !c.attachment)" :key="column.prop" :label="column.label" :value="column.prop" />
-            </el-select>
-            <el-select v-model="query.isAsc" aria-label="排序方向" style="width: 100px" @change="handleQuery"><el-option label="倒序" value="desc" /><el-option label="正序" value="asc" /></el-select>
-            <el-button icon="Refresh" :loading="loading" @click="getList">刷新</el-button>
-          </div>
-
-              </div>
-            </el-popover>
+            <ViewOrdering v-if="accrualView !== 'chart'" v-model:groups="orderGroups" v-model:sorts="orderSorts" :columns="orderColumns" :group-columns="orderGroupColumns" :max-groups="1" :max-sorts="1" @change="handleOrderChange" />
+            <ColumnSettings v-if="!trendOnly" v-model="columnState" :columns="allTableColumns" />
           </div>
         </div>
       </template>
@@ -111,7 +89,8 @@ import ColumnSettings from './ColumnSettings.vue';
 import { useUserStore } from '@/store/modules/user';
 import { useOzonShopStore } from '@/store/modules/ozonShop';
 import ViewSelector from './ViewSelector.vue';
-import { useSavedViews, type ViewSnapshot, type SavedView } from './savedViews';
+import ViewOrdering from './ViewOrdering.vue';
+import { useSavedViews, type ViewSnapshot, type SavedView, type ViewOrder } from './savedViews';
 import viewPresets from './viewPresets.json';
 import { readPreference, writePreference, normalizeColumns, selectedColumns, normalizeQuery, normalizeDates } from './preferences';
 
@@ -152,7 +131,6 @@ function restorePreferences() {
 }
 function saveView() { viewManager.saveCurrent(); }
 const filterOpen = ref(false);
-const sortOpen = ref(false);
 const tableViewport = ref<HTMLElement>();
 const horizontalTrack=ref<HTMLElement>(),scrollContentWidth=ref(0),hasHorizontalScroll=ref(false);
 let bodyScroll:HTMLElement|undefined;let scrollObserver:ResizeObserver|undefined;
@@ -191,7 +169,38 @@ const detailOpen = ref(false);
 const detail = ref<ReportRow>({});
 const { loading, setLoading } = useLoading();
 let requestVersion = 0;
-const viewTitle = computed(() => kind.value === 'monthly' ? (query.groupBy === 'none' ? '全部' : query.groupBy === 'month' ? '按月分组' : '按卖家 SKU 分组') : title.value);
+// 「分组 / 排序」面板：与业务表（0.产品 等）共用 ViewOrdering 组件。
+// 报表后端只支持单维分组 + 单项排序，所以 maxGroups / maxSorts 都是 1，分组字段与 groupBy 互转。
+const orderColumns = computed<ReportColumn[]>(() => columns.value.filter(c => !c.attachment && c.prop !== '__actions'));
+const orderGroupColumns = computed<ReportColumn[]>(() => {
+  if (kind.value === 'monthly') return orderColumns.value.filter(c => c.prop === 'reportMonth' || c.prop === 'sellerSku');
+  if (kind.value === 'supply') return orderColumns.value.filter(c => c.prop === 'sku');
+  return [];
+});
+function groupFieldOf() {
+  if (kind.value === 'monthly') return query.groupBy === 'month' ? 'reportMonth' : query.groupBy === 'sku' ? 'sellerSku' : '';
+  if (kind.value === 'supply') return query.groupBy === 'sku' ? 'sku' : '';
+  return '';
+}
+function groupByOf(field: string) {
+  if (kind.value === 'monthly') return field === 'reportMonth' ? 'month' : field === 'sellerSku' ? 'sku' : 'none';
+  if (kind.value === 'supply') return field === 'sku' ? 'sku' : 'none';
+  return 'none';
+}
+const orderGroups = computed<ViewOrder[]>({
+  get() { const field = groupFieldOf(); return field ? [{ field, desc: query.groupDesc === true }] : []; },
+  set(list) {
+    const first = (Array.isArray(list) ? list : [])[0];
+    const next = first ? groupByOf(first.field) : 'none';
+    if (next !== query.groupBy) { query.groupBy = next; if (first) query.groupDesc = first.desc === true; setDefaultSort(); }
+    else if (first) query.groupDesc = first.desc === true;
+  }
+});
+const orderSorts = computed<ViewOrder[]>({
+  get() { return query.orderByColumn ? [{ field: query.orderByColumn, desc: query.isAsc !== 'asc' }] : []; },
+  set(list) { const first = (Array.isArray(list) ? list : [])[0]; if (!first) return; query.orderByColumn = first.field; query.isAsc = first.desc ? 'desc' : 'asc'; }
+});
+function handleOrderChange() { query.pageNum = 1; getList(); }
 const defaultSort = computed(() => ({ prop: query.orderByColumn, order: query.isAsc === 'asc' ? 'ascending' as const : 'descending' as const }));
 const tableKey = computed(() => [kind.value, query.groupBy, query.orderByColumn, query.isAsc, query.groupDesc, JSON.stringify(columnState.value)].join(':'));
 const summableColumns = computed(() => tableColumns.value.filter(canSumColumn));
@@ -262,7 +271,6 @@ async function getList() {
   } finally { if (version === requestVersion) { setLoading(false); nextTick(updateTableHeight); } }
 }
 function handleQuery() { query.pageNum = 1; getList(); }
-function changeView() { setDefaultSort(); handleQuery(); }
 function resetQuery() {
   const groupBy = query.groupBy;
   const groupDesc = query.groupDesc;
@@ -382,7 +390,6 @@ onBeforeUnmount(() => {
 .panel-description { color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.6; margin: 8px 0 14px; }
 .panel-filters :deep(.el-form-item) { margin-bottom: 12px; }
 .panel-filters :deep(.el-input), .panel-filters :deep(.el-date-editor) { width: 100%; }
-.sort-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .notice { margin-top: 12px; font-size: 12px; }
 :global(.ozon-data-grid){--ozon-grid-text:#1f2329;--ozon-grid-heading:#1f2329;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Tahoma,'PingFang SC','Microsoft YaHei',Arial,'Hiragino Sans GB',sans-serif;font-size:14px;font-weight:400;line-height:20px;color:var(--ozon-grid-text);--el-table-text-color:var(--ozon-grid-text);--el-table-header-text-color:var(--ozon-grid-heading)}
 :global(html.dark .ozon-data-grid){--ozon-grid-text:var(--el-text-color-primary);--ozon-grid-heading:var(--el-text-color-primary)}
