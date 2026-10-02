@@ -80,12 +80,16 @@ export interface OzonSupplyReportVO extends ReportRow {
   completionDate: string | null;
   deliveryId: string | null;
   productName: string | null;
+  /** 品名（关联产品库中文名）。 */
+  localProductName: string | null;
   itemCode: string | null;
   sku: string | null;
   liquidity: string | null;
   quantity: number | string | null;
   volume: string | null;
   ozonOrderUrl: string | null;
+  /** 关联产品货品图片的公开文件信息。 */
+  attachmentJson: string | null;
 }
 
 /** 当前筛选范围内的产品月度销售额。 */export interface ProductSalesTrend {

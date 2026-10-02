@@ -16,12 +16,15 @@ export function writePreference(key: string, value: unknown): boolean {
 export function normalizeColumns(value: unknown, columns: ReportColumn[]): ColumnPreference {
   const saved = value && typeof value === 'object' ? value as Partial<ColumnPreference> : {};
   const keys = columns.map(column => column.prop);
-  const order = [...new Set([...(Array.isArray(saved.order) ? saved.order.filter(key => keys.includes(key)) : []), ...keys])];
-  // 旧视图首次加入图片列时放在配置位置；之后尊重用户的列顺序。
-  if (keys.includes('attachmentJson') && !(Array.isArray(saved.order) && saved.order.includes('attachmentJson'))) {
-    order.splice(order.indexOf('attachmentJson'), 1);
-    const previous = keys[keys.indexOf('attachmentJson') - 1];
-    order.splice(previous ? order.indexOf(previous) + 1 : 0, 0, 'attachmentJson');
+  const savedOrder = Array.isArray(saved.order) ? saved.order.filter(key => keys.includes(key)) : [];
+  const order = [...new Set([...savedOrder, ...keys])];
+  // 老视图首次出现新列时，按列定义插回相邻位置（如图片、品名），之后尊重用户自己的列顺序。
+  for (let index = 0; index < keys.length; index++) {
+    const key = keys[index];
+    if (savedOrder.includes(key)) continue;
+    const previous = keys[index - 1];
+    order.splice(order.indexOf(key), 1);
+    order.splice(previous ? order.indexOf(previous) + 1 : 0, 0, key);
   }
   const hidden = Array.isArray(saved.hidden) ? [...new Set(saved.hidden.filter(key => keys.includes(key)))] : [];
   if (hidden.length === keys.length && keys.length) hidden.splice(hidden.indexOf(order[0]), 1);

@@ -241,6 +241,7 @@ export const reportColumns: Record<string, ReportColumn[]> = {
   ],
   "supply": [
     { prop: 'attachmentJson', label: '货品图片', width: 124, attachment: true },
+    { prop: 'localProductName', label: '品名', width: 150 },
     {
       "prop": "orderId",
       "label": "申请内部ID",
