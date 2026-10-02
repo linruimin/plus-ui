@@ -33,7 +33,7 @@
        </template>
       </div>
       <div v-else-if="field.attachment" class="editable-cell attachment-cell" :class="{'is-draft':!!drafts[row.id]&&!row.__new,'is-new-cell':row.__new}" :title="attachmentTitle(row)">
-       <AttachmentUpload :files="attachmentList(row)" :editable="attachmentEditable(row)" :code="attachmentCode(row)" :source-table="table" :field-name="field.label" :ensure-draft="()=>ensureAttachmentDraft(row)" @update:files="setAttachments(row,$event)"/>
+       <AttachmentUpload :files="attachmentList(row)" :editable="attachmentEditable(row)" :code="attachmentCode(row)" :source-table="table" :field-name="field.label" :ensure-draft="()=>ensureAttachmentDraft(row)" :apply-files="(next)=>setAttachments(row,next)" @update:files="setAttachments(row,$event)"/>
       </div>
       <div v-else-if="field.customId" class="editable-cell custom-cell" :class="{'is-draft':customEdit?.rowId===String(row.id)&&customEdit?.fieldId===field.customId}" @click="beginCustomCell(row,field)">
        <el-input v-if="customEdit?.rowId===String(row.id)&&customEdit?.fieldId===field.customId" v-model="customEdit.value" :type="field.numeric?'number':'text'" :maxlength="1000" :disabled="customSaving" :aria-label="field.label" @keyup.enter="saveCustomCell(row,field)" @keyup.esc="customEdit=null" @blur="saveCustomCell(row,field)"/>
@@ -199,7 +199,10 @@ async function viewAction(action:'add'|'rename'|'remove'|'reset'){if(await viewM
 function persist(){viewManager.saveCurrent();}
 watch(columnState,persist,{deep:true});
 const visibleColumns=computed(()=>{const columns=selectedColumns(columnState.value,activeColumns.value) as BusinessField[];return draftCount.value?columns:columns.filter(field=>field.prop!=='__actions');});
-const tableKey=computed(()=>JSON.stringify([columnState.value,activeColumns.value.map(f=>f.prop),groups.value,sorts.value,draftCount.value>0]));
+/** 视图快照 key：列设置/分组/排序变化时重建表格。
+ *  ⚠️ 不要把 draftCount 放进来——草稿行出现会重建整个 el-table，把正在上传的单元格组件卸载，
+ *  Vue 会丢弃已卸载实例的 emit（丢图），并且表格滚动位置会被重置到顶部。操作列由 visibleColumns 动态增删。 */
+const tableKey=computed(()=>JSON.stringify([columnState.value,activeColumns.value.map(f=>f.prop),groups.value,sorts.value]));
 const defaultSort=computed(()=>sorts.value.length?{prop:sorts.value[0].field,order:sorts.value[0].desc===false?'ascending' as const:'descending' as const}:{prop:'',order:null});
 const allFilterFields=computed(()=>config.columns.filter(field=>!removedFields.value.includes(field.prop)&&!field.attachment&&!field.multiple));
 const filterColumns=computed(()=>allFilterFields.value.filter(field=>!shopStore.selectedId||field.prop!=='shopId'));

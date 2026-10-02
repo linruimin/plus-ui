@@ -8,7 +8,7 @@
       <el-button v-if="editable" class="attachment-remove" link type="danger" icon="Close" :disabled="uploading" :title="'移除 ' + file.fileName" @click.stop="remove(index)"/>
     </span>
     <el-upload v-if="editable" class="attachment-picker" :show-file-list="false" :multiple="true" :accept="accept" :disabled="uploading" :http-request="upload">
-      <el-button class="attachment-add" link type="primary" icon="Plus" :loading="uploading" :title="hint">上传</el-button>
+      <el-button class="attachment-add" link type="primary" icon="Plus" :loading="uploading" :title="hint" :aria-label="hint"/>
     </el-upload>
     <span v-if="!items.length && !editable" class="no-attachment">—</span>
   </div>
@@ -20,8 +20,12 @@ import type {UploadRequestOptions} from 'element-plus';
 import {uploadBusinessAttachment} from '@/api/ozon/business';
 /** 附件项：已登记的带 id，本次新上传的只有对象信息。 */
 interface AttachmentItem{id?:string|number;fileName:string;cosKey?:string;cosUrl:string;sizeBytes?:number;mimeType?:string}
-const props=defineProps<{files?:AttachmentItem[];editable?:boolean;code?:string|number|null;sourceTable:string;fieldName:string;ensureDraft?:()=>Promise<boolean>|boolean}>();
+const props=defineProps<{files?:AttachmentItem[];editable?:boolean;code?:string|number|null;sourceTable:string;fieldName:string;ensureDraft?:()=>Promise<boolean>|boolean;applyFiles?:(files:AttachmentItem[])=>void}>();
 const emit=defineEmits<{'update:files':[AttachmentItem[]]}>();
+/** 结果通道一：事件（弹窗用）。通道二：applyFiles 父组件回调（表格单元格用）——
+ *  单元格所在行一旦进入草稿态，表格可能整体重建把本组件卸载，此时 Vue 会直接丢弃
+ *  已卸载实例的 emit（runtime-core 的 `if (instance.isUnmounted) return`），回调不受影响。 */
+function commit(next:AttachmentItem[]){emit('update:files',next);props.applyFiles?.(next);}
 /** 允许的图片类型与扩展名，与后端 OzonBizAttachmentServiceImpl 保持一致。 */
 const types:Record<string,string>={'image/png':'png','image/jpeg':'jpg','image/webp':'webp'};
 const accept='image/png,image/jpeg,image/webp';
@@ -64,7 +68,7 @@ async function upload(options:UploadRequestOptions){
   if(props.ensureDraft&&!(await props.ensureDraft())){ElMessage.warning('当前记录无法开始编辑，请刷新后重试');return;}
   const response=await uploadBusinessAttachment(file,{sourceTable:props.sourceTable,fieldName:props.fieldName,fileName});
   const data=response.data||{} as AttachmentItem;
-  emit('update:files',[...items.value,{fileName:data.fileName||fileName,cosKey:data.cosKey,cosUrl:data.cosUrl,sizeBytes:data.sizeBytes,mimeType:data.mimeType}]);
+  commit([...items.value,{fileName:data.fileName||fileName,cosKey:data.cosKey,cosUrl:data.cosUrl,sizeBytes:data.sizeBytes,mimeType:data.mimeType}]);
   ElMessage.success('图片已上传，保存后生效');
  }catch{
   ElMessage.error('图片上传失败，请重试');
@@ -76,7 +80,7 @@ function remove(index:number){
  if(!props.editable||uploading.value)return;
  const next=items.value.slice();
  next.splice(index,1);
- emit('update:files',next);
+ commit(next);
 }
 </script>
 <style scoped>
