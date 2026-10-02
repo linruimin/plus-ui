@@ -110,8 +110,8 @@ export const usePermissionStore = defineStore('permission', () => {
       if (type && route.children) {
         route.children = filterChildren(route.children, undefined);
       }
-      // 业务表格保留视图工具栏，只隐藏其上方的页面标签栏。
-      if (route.component?.toString().startsWith('ozon/business/')) {
+      // Ozon 全部页面（业务表 + 各报表）隐藏其上方的页面标签栏，只保留表格卡片内的视图工具栏。
+      if (route.component?.toString().startsWith('ozon/')) {
         route.meta = { ...route.meta, hideTagsView: true };
       }
       // Layout ParentView 组件特殊处理
