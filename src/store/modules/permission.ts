@@ -9,8 +9,6 @@ import auth from '@/plugins/auth';
 import router, { constantRoutes, dynamicRoutes } from '@/router';
 import store from '@/store';
 import { createCustomNameComponent } from '@/utils/createCustomNameComponent';
-import { getNormalPath } from '@/utils/ruoyi';
-import { isExternal } from '@/utils/validate';
 
 // 匹配views里面所有的.vue文件，预建查找表避免每次 O(n) 扫描
 const modules = import.meta.glob('./../../views/**/*.vue');
@@ -21,25 +19,6 @@ for (const path in modules) {
   const dir = path.substring(viewsIndex + 7, path.lastIndexOf('.vue'));
   viewModuleMap.set(dir, modules[path] as () => Promise<any>);
 }
-/** Display every visible page as a first-level navigation item without changing router nesting. */
-const flattenSidebarRoutes = (routes: RouteRecordRaw[]): RouteRecordRaw[] => {
-  const items: RouteRecordRaw[] = [];
-  const visit = (route: RouteRecordRaw, parentPath = '') => {
-    if (route.hidden) return;
-    const path = isExternal(route.path) || route.path.startsWith('/')
-      ? route.path
-      : getNormalPath(parentPath + '/' + route.path);
-    const children = route.children?.filter(child => !child.hidden) || [];
-    if (children.length) {
-      children.forEach(child => visit(child, path));
-    } else {
-      items.push({ ...route, path, children: undefined, alwaysShow: false });
-    }
-  };
-  routes.forEach(route => visit(route));
-  return items;
-};
-
 export const usePermissionStore = defineStore('permission', () => {
   const routes = ref<RouteRecordRaw[]>([]);
   const addRoutes = ref<RouteRecordRaw[]>([]);
@@ -71,7 +50,8 @@ export const usePermissionStore = defineStore('permission', () => {
     topbarRouters.value = routes;
   };
   const setSidebarRouters = (routes: RouteRecordRaw[]): void => {
-    sidebarRouters.value = flattenSidebarRoutes(routes);
+    // 保留菜单表层级：目录（如「报表」「Ozon订单」「货物进出」）渲染为可折叠分组。
+    sidebarRouters.value = routes;
   };
   const generateRoutes = async (): Promise<RouteRecordRaw[]> => {
     const res = await getRouters();

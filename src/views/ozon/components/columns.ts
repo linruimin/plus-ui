@@ -332,7 +332,6 @@ export const reportColumns: Record<string, ReportColumn[]> = {
     { prop: 'articleNo', label: '货号', width: 150 },
     { prop: 'sku', label: 'Ozon SKU', width: 110 },
     { prop: 'returnQty', label: '退货件数', width: 87, numeric: true },
-    { prop: 'shipmentCount', label: '退货货件数', width: 100, numeric: true },
     { prop: 'soldUnits', label: '售出件数', width: 87, numeric: true },
     { prop: 'returnRate', label: '退货率(%)', width: 87, decimal: true, precision: 2, numeric: true },
     { prop: 'processedCount', label: '已处理件数', width: 100, numeric: true },

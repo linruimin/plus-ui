@@ -2101,7 +2101,6 @@
             "localProductName",
             "articleNo",
             "returnQty",
-            "shipmentCount",
             "soldUnits",
             "returnRate",
             "disposalCount",
@@ -2155,7 +2154,6 @@
             "sku",
             "reportMonth",
             "returnQty",
-            "shipmentCount",
             "soldUnits",
             "returnRate",
             "disposalCount"
