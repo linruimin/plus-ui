@@ -1,6 +1,7 @@
 <template>
   <el-popover placement="bottom-end" trigger="click" :width="Math.min(440, width - 24)">
-    <template #reference><el-button icon="Sort">{{ groupable ? '分组 / 排序' : '排序' }}</el-button></template>
+    <template #reference><el-button icon="Sort">{{ buttonLabel }}</el-button></template>
+    <p v-if="!groupable" class="empty-group-note">该报表没有可用的分组维度，本面板仅提供排序。</p>
     <div v-for="kind in kinds" :key="kind" class="order-section">
       <strong>{{ title(kind) }}</strong>
       <div v-for="(item, index) in values(kind)" :key="index" class="order-row">
@@ -23,11 +24,14 @@ import type { ViewOrder } from './savedViews';
 type Kind='groups'|'sorts';
 // groupColumns 传空数组即隐藏「分组」区（后端只支持单维分组时用 maxGroups=1）；
 // 不传时沿用 columns，保持业务表原有行为不变。
-const props=defineProps<{columns:ReportColumn[];groups:ViewOrder[];sorts:ViewOrder[];groupColumns?:ReportColumn[];maxGroups?:number;maxSorts?:number}>();
+// label 可强制按钮文案（如「分组 / 排序」），用于与同组页面保持字面统一；
+// 不传时按是否有分组维度自动推导（有分组维度→「分组 / 排序」，无→「排序」）。
+const props=defineProps<{columns:ReportColumn[];groups:ViewOrder[];sorts:ViewOrder[];groupColumns?:ReportColumn[];maxGroups?:number;maxSorts?:number;label?:string}>();
 const emit=defineEmits<{'update:groups':[value:ViewOrder[]];'update:sorts':[value:ViewOrder[]];change:[]}>();
 const {width}=useWindowSize();
 const groupColumns=computed<ReportColumn[]>(()=>props.groupColumns ?? props.columns);
 const groupable=computed(()=>groupColumns.value.length>0);
+const buttonLabel=computed(()=>props.label ?? (groupable.value?'分组 / 排序':'排序'));
 const kinds=computed<Kind[]>(()=>groupable.value?['groups','sorts']:['sorts']);
 const cols=(kind:Kind)=>kind==='groups'?groupColumns.value:props.columns;
 const limit=(kind:Kind)=>kind==='groups'?(props.maxGroups??3):(props.maxSorts??5);
@@ -40,4 +44,5 @@ function add(kind:Kind){const column=cols(kind).find(c=>!values(kind).some(v=>v.
 </script>
 <style scoped>
 .order-section{margin-bottom:14px}.order-row{display:flex;gap:6px;align-items:center;margin:8px 0}.direction{flex:0 0 80px}.hint{font-size:12px;color:var(--el-text-color-secondary);line-height:1.6}
+.empty-group-note{margin:0 0 10px;padding:6px 10px;border-radius:4px;background:var(--el-fill-color-light);font-size:12px;color:var(--el-text-color-secondary);line-height:1.6}
 </style>

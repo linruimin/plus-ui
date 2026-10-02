@@ -39,7 +39,7 @@
                 <p v-if="kind === 'monthly'" class="panel-description">分组标题展示当前页记录，同一组跨页时继续展示。</p>
               </div>
             </el-popover>
-            <ViewOrdering v-if="accrualView !== 'chart'" v-model:groups="orderGroups" v-model:sorts="orderSorts" :columns="orderColumns" :group-columns="orderGroupColumns" :max-groups="1" :max-sorts="1" @change="handleOrderChange" />
+            <ViewOrdering v-if="accrualView !== 'chart'" v-model:groups="orderGroups" v-model:sorts="orderSorts" :columns="orderColumns" :group-columns="orderGroupColumns" :max-groups="1" :max-sorts="1" :label="kind === 'accruals' ? '分组 / 排序' : undefined" @change="handleOrderChange" />
             <ColumnSettings v-if="!trendOnly" v-model="columnState" :columns="allTableColumns" />
           </div>
         </div>
