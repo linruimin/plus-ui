@@ -387,14 +387,14 @@ onBeforeUnmount(() => {
 :global(.ozon-data-grid){--ozon-grid-text:#1f2329;--ozon-grid-heading:#1f2329;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Tahoma,'PingFang SC','Microsoft YaHei',Arial,'Hiragino Sans GB',sans-serif;font-size:14px;font-weight:400;line-height:20px;color:var(--ozon-grid-text);--el-table-text-color:var(--ozon-grid-text);--el-table-header-text-color:var(--ozon-grid-heading)}
 :global(html.dark .ozon-data-grid){--ozon-grid-text:var(--el-text-color-primary);--ozon-grid-heading:var(--el-text-color-primary)}
 :global(.ozon-data-grid th.el-table__cell){padding:0;font-size:13px;font-weight:600;color:var(--ozon-grid-heading)}
-/* 上游 vendors/_table.scss 用 !important 把表头钉死在 40px，这里按多维表格的紧凑密度覆盖回来。 */
-:global(.ozon-data-grid .el-table__header-wrapper th.el-table__cell){height:28px!important}
-:global(.ozon-data-grid td.el-table__cell){height:30px;padding:1px 0}
+/* 上游 vendors/_table.scss 用 !important 把表头钉死在 40px，这里按多维表格「低」行高（32px，表头与数据行同高）对齐并保持覆盖。 */
+:global(.ozon-data-grid .el-table__header-wrapper th.el-table__cell){height:32px!important}
+:global(.ozon-data-grid td.el-table__cell){height:32px;padding:0}
 :global(.ozon-data-grid .attachment-images){min-height:24px;padding:0;flex-wrap:nowrap;overflow:hidden}
 :global(.ozon-data-grid .attachment-thumbnail){width:24px;height:24px;flex-basis:24px}
 :global(.ozon-data-grid .cell){padding:0 10px;line-height:20px;font-variant-numeric:tabular-nums}
 :global(.ozon-data-grid th .cell){white-space:nowrap;overflow:hidden;text-overflow:clip;line-height:20px;max-height:20px}
-.report-page :deep(.ozon-data-grid .el-table__footer-wrapper td.el-table__cell) { background: var(--el-fill-color-light); height:24px; padding:0; font-size:13px; font-weight:400; color: var(--el-text-color-primary); }
+.report-page :deep(.ozon-data-grid .el-table__footer-wrapper td.el-table__cell) { background: var(--el-fill-color-light); height:28px; padding:0; font-size:13px; font-weight:400; line-height:20px; color: var(--el-text-color-primary); }
 .report-page :deep(.ozon-data-grid .el-table__footer-wrapper td.el-table__cell:nth-child(2)) { font-weight: 400; }
 .horizontal-track{height:16px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}.report-page :deep(.ozon-data-grid .el-scrollbar__bar.is-horizontal){display:none}.report-page :deep(.ozon-data-grid .row-number-column){color:var(--el-text-color-secondary);font-size:12px}
 :global(.ozon-data-grid .caret-wrapper){display:none}
