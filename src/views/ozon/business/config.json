@@ -2656,5 +2656,259 @@
         "required": false
       }
     ]
+  },
+  "returns": {
+    "title": "退货",
+    "endpoint": "returns",
+    "fields": [],
+    "columns": [
+      {
+        "prop": "attachmentJson",
+        "label": "货品图片",
+        "width": 124,
+        "attachment": true
+      },
+      {
+        "prop": "productName",
+        "label": "货品名称",
+        "width": 160,
+        "readonly": true
+      },
+      {
+        "prop": "shopId",
+        "label": "店铺",
+        "sql": "shop_id",
+        "width": 120,
+        "numeric": true,
+        "type": "number",
+        "reference": "shop"
+      },
+      {
+        "prop": "returnStatus",
+        "label": "退货状态",
+        "sql": "return_status",
+        "width": 130
+      },
+      {
+        "prop": "statusDate",
+        "label": "状态日期",
+        "sql": "status_date",
+        "width": 150,
+        "type": "date"
+      },
+      {
+        "prop": "returnDate",
+        "label": "退货日期",
+        "sql": "return_date",
+        "width": 150,
+        "type": "date"
+      },
+      {
+        "prop": "orderDate",
+        "label": "下订单日期",
+        "sql": "order_date",
+        "width": 150,
+        "type": "date"
+      },
+      {
+        "prop": "shipmentNo",
+        "label": "货件编号",
+        "sql": "shipment_no",
+        "width": 150
+      },
+      {
+        "prop": "articleNo",
+        "label": "货号",
+        "sql": "article_no",
+        "width": 140
+      },
+      {
+        "prop": "sku",
+        "label": "SKU",
+        "sql": "sku",
+        "width": 120
+      },
+      {
+        "prop": "fulfillmentScheme",
+        "label": "模式",
+        "sql": "fulfillment_scheme",
+        "width": 90
+      },
+      {
+        "prop": "returnQty",
+        "label": "退货数量",
+        "sql": "return_qty",
+        "width": 100,
+        "numeric": true,
+        "type": "number"
+      },
+      {
+        "prop": "returnReason",
+        "label": "退货原因",
+        "sql": "return_reason",
+        "width": 170
+      },
+      {
+        "prop": "buyerType",
+        "label": "买家类型",
+        "sql": "buyer_type",
+        "width": 110
+      },
+      {
+        "prop": "storageFeeRub",
+        "label": "仓储费用（RUB）",
+        "sql": "storage_fee_rub",
+        "width": 130,
+        "numeric": true,
+        "type": "number",
+        "decimal": true,
+        "precision": 2
+      },
+      {
+        "prop": "disposalFeeRub",
+        "label": "销毁费用（RUB）",
+        "sql": "disposal_fee_rub",
+        "width": 130,
+        "numeric": true,
+        "type": "number",
+        "decimal": true,
+        "precision": 2
+      },
+      {
+        "prop": "maxPriceRub",
+        "label": "最高价格（RUB）",
+        "sql": "max_price_rub",
+        "width": 130,
+        "numeric": true,
+        "type": "number",
+        "decimal": true,
+        "precision": 2
+      },
+      {
+        "prop": "storageDays",
+        "label": "存储天数",
+        "sql": "storage_days",
+        "width": 100,
+        "numeric": true,
+        "type": "number"
+      },
+      {
+        "prop": "destination",
+        "label": "目的地",
+        "sql": "destination",
+        "width": 150
+      },
+      {
+        "prop": "compensationStatus",
+        "label": "赔偿状态",
+        "sql": "compensation_status",
+        "width": 130
+      },
+      {
+        "prop": "buyerComment",
+        "label": "买家评论",
+        "sql": "buyer_comment",
+        "width": 220
+      },
+      {
+        "prop": "id",
+        "label": "记录ID",
+        "sql": "row_id",
+        "width": 80,
+        "numeric": true,
+        "type": "number"
+      },
+      {
+        "prop": "productId",
+        "label": "产品ID",
+        "width": 110,
+        "numeric": true,
+        "readonly": true
+      },
+      {
+        "prop": "productNo",
+        "label": "产品编号",
+        "width": 110,
+        "numeric": true,
+        "readonly": true
+      },
+      {
+        "prop": "ozonProductName",
+        "label": "Ozon商品名（俄文）",
+        "sql": "product_name",
+        "width": 240
+      },
+      {
+        "prop": "returnBarcode",
+        "label": "退货条形码",
+        "sql": "return_barcode",
+        "width": 160
+      },
+      {
+        "prop": "packageOpened",
+        "label": "货件已打开",
+        "sql": "package_opened",
+        "width": 110
+      },
+      {
+        "prop": "mandatoryFlag",
+        "label": "强制标志",
+        "sql": "mandatory_flag",
+        "width": 100
+      },
+      {
+        "prop": "compensationDate",
+        "label": "赔偿状态日期",
+        "sql": "compensation_date",
+        "width": 150,
+        "type": "date"
+      },
+      {
+        "prop": "pickupPointDate",
+        "label": "到达取货点日期",
+        "sql": "pickup_point_date",
+        "width": 150,
+        "type": "date"
+      },
+      {
+        "prop": "returnToSellerDate",
+        "label": "向卖家退货日期",
+        "sql": "return_to_seller_date",
+        "width": 150,
+        "type": "date"
+      },
+      {
+        "prop": "freeStorageUntil",
+        "label": "免费存储至",
+        "sql": "free_storage_until",
+        "width": 150,
+        "type": "date"
+      },
+      {
+        "prop": "storageAddress",
+        "label": "存储地址",
+        "sql": "storage_address",
+        "width": 220
+      },
+      {
+        "prop": "location",
+        "label": "位置",
+        "sql": "location",
+        "width": 140
+      },
+      {
+        "prop": "sourceFile",
+        "label": "来源文件",
+        "sql": "source_file",
+        "width": 220
+      },
+      {
+        "prop": "importedAt",
+        "label": "导入时间",
+        "sql": "imported_at",
+        "width": 150,
+        "type": "date"
+      }
+    ]
   }
 }

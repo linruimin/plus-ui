@@ -2096,5 +2096,220 @@
         "dateRange": []
       }
     }
+  ],
+  "returns": [
+    {
+      "id": "all",
+      "name": "全部",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "attachmentJson",
+            "productName",
+            "shopId",
+            "returnStatus",
+            "statusDate",
+            "returnDate",
+            "orderDate",
+            "shipmentNo",
+            "articleNo",
+            "sku",
+            "fulfillmentScheme",
+            "returnQty",
+            "returnReason",
+            "buyerType",
+            "storageFeeRub",
+            "disposalFeeRub",
+            "maxPriceRub",
+            "storageDays",
+            "destination",
+            "compensationStatus",
+            "buyerComment"
+          ],
+          "hidden": [
+            "id",
+            "productId",
+            "productNo",
+            "ozonProductName",
+            "returnBarcode",
+            "packageOpened",
+            "mandatoryFlag",
+            "compensationDate",
+            "pickupPointDate",
+            "returnToSellerDate",
+            "freeStorageUntil",
+            "storageAddress",
+            "location",
+            "sourceFile",
+            "importedAt"
+          ],
+          "fixed": {
+            "attachmentJson": "left",
+            "productName": "left",
+            "shopId": "left"
+          }
+        },
+        "groups": [],
+        "sorts": [
+          {
+            "field": "statusDate",
+            "desc": true
+          }
+        ],
+        "rev": 1
+      }
+    },
+    {
+      "id": "by_status",
+      "name": "按状态",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "attachmentJson",
+            "productName",
+            "shopId",
+            "returnStatus",
+            "statusDate",
+            "returnDate",
+            "orderDate",
+            "shipmentNo",
+            "articleNo",
+            "sku",
+            "fulfillmentScheme",
+            "returnQty",
+            "returnReason",
+            "buyerType",
+            "storageFeeRub",
+            "disposalFeeRub",
+            "maxPriceRub",
+            "storageDays",
+            "destination",
+            "compensationStatus",
+            "buyerComment"
+          ],
+          "hidden": [
+            "id",
+            "productId",
+            "productNo",
+            "ozonProductName",
+            "returnBarcode",
+            "packageOpened",
+            "mandatoryFlag",
+            "compensationDate",
+            "pickupPointDate",
+            "returnToSellerDate",
+            "freeStorageUntil",
+            "storageAddress",
+            "location",
+            "sourceFile",
+            "importedAt"
+          ],
+          "fixed": {
+            "attachmentJson": "left",
+            "productName": "left",
+            "shopId": "left"
+          }
+        },
+        "groups": [
+          {
+            "field": "returnStatus",
+            "desc": false
+          }
+        ],
+        "sorts": [
+          {
+            "field": "statusDate",
+            "desc": true
+          }
+        ],
+        "rev": 1
+      }
+    },
+    {
+      "id": "by_product",
+      "name": "按产品",
+      "snapshot": {
+        "query": {
+          "pageNum": 1,
+          "pageSize": 100,
+          "filters": {},
+          "ends": {},
+          "equals": {}
+        },
+        "columns": {
+          "order": [
+            "attachmentJson",
+            "productName",
+            "shopId",
+            "returnStatus",
+            "statusDate",
+            "returnDate",
+            "orderDate",
+            "shipmentNo",
+            "articleNo",
+            "sku",
+            "fulfillmentScheme",
+            "returnQty",
+            "returnReason",
+            "buyerType",
+            "storageFeeRub",
+            "disposalFeeRub",
+            "maxPriceRub",
+            "storageDays",
+            "destination",
+            "compensationStatus",
+            "buyerComment"
+          ],
+          "hidden": [
+            "id",
+            "productId",
+            "productNo",
+            "ozonProductName",
+            "returnBarcode",
+            "packageOpened",
+            "mandatoryFlag",
+            "compensationDate",
+            "pickupPointDate",
+            "returnToSellerDate",
+            "freeStorageUntil",
+            "storageAddress",
+            "location",
+            "sourceFile",
+            "importedAt"
+          ],
+          "fixed": {
+            "attachmentJson": "left",
+            "productName": "left"
+          }
+        },
+        "groups": [
+          {
+            "field": "productName",
+            "desc": false
+          }
+        ],
+        "sorts": [
+          {
+            "field": "statusDate",
+            "desc": true
+          }
+        ],
+        "rev": 1
+      }
+    }
   ]
 }
