@@ -18,6 +18,8 @@ export interface ReportQuery extends PageQuery {
   accrualType?: string;
   applicationNo?: string;
   status?: string;
+  /** 全局店铺范围；仅订单费用明细（accruals）生效。 */
+  scopeShopId?: string;
 }
 
 export interface ReportRow {

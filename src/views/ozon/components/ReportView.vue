@@ -12,6 +12,7 @@
             <el-radio-group v-if="kind === 'supply'" v-model="query.groupBy" size="small" @change="handleQuery"><el-radio-button value="sku">按货品分析</el-radio-button><el-radio-button value="none">不分组</el-radio-button></el-radio-group>
             <el-select v-if="(kind === 'monthly' || kind === 'supply') && query.groupBy !== 'none'" v-model="query.groupDesc" style="width:110px" aria-label="分组顺序" @change="handleQuery"><el-option :value="false" label="分组正序"/><el-option :value="true" label="分组倒序"/></el-select>
             <h2 v-if="trendOnly" class="trend-title">产品销售趋势</h2>
+            <el-tag v-if="kind === 'accruals' && shopStore.selectedName" type="primary" size="small">{{ shopStore.selectedName }}</el-tag>
             <span v-if="accrualView !== 'chart'" class="record-count">共 {{ total.toLocaleString() }} 条</span>
           </div>
           <div class="view-actions">
@@ -100,7 +101,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onActivated, onBeforeUnmount, nextTick, reactive, ref, watch } from 'vue';
-import { listReport, listAccrualLines } from '@/api/ozon/report';
+import { listReport, listAccrualLines, scopeReportQuery } from '@/api/ozon/report';
 import type { ReportKind, ReportQuery, ReportRow } from '@/api/ozon/report/types';
 import { useLoading } from '@/hooks/async/useLoading';
 import { reportColumns, gridColumnWidth, canSumColumn, sumRowValues, formatNumericColumn } from './columns';
@@ -109,6 +110,7 @@ import SalesTrendChart from './SalesTrendChart.vue';
 import AttachmentImages from './AttachmentImages.vue';
 import ColumnSettings from './ColumnSettings.vue';
 import { useUserStore } from '@/store/modules/user';
+import { useOzonShopStore } from '@/store/modules/ozonShop';
 import ViewSelector from './ViewSelector.vue';
 import { useSavedViews, type ViewSnapshot, type SavedView } from './savedViews';
 import viewPresets from './viewPresets.json';
@@ -116,6 +118,7 @@ import { readPreference, writePreference, normalizeColumns, selectedColumns, nor
 
 const props = defineProps<{ kind: ReportKind; trendOnly?: boolean; preferenceKey?: string }>();
 const kind = computed(() => props.kind);
+const shopStore = useOzonShopStore();
 const basePreferenceKey = 'ozon:views:v1:' + useUserStore().userId + ':' + (props.preferenceKey || (props.trendOnly ? 'trend' : props.kind));
 const savedGroup = readPreference(basePreferenceKey).groupBy === 'sku' ? 'sku' : 'month';
 const storageWarning = ref(false);
@@ -242,7 +245,11 @@ async function getList() {
   const version = ++requestVersion;
   setLoading(true); error.value = '';
   try {
-    const params = { ...query, startDate: dateRange.value?.[0], endDate: dateRange.value?.[1] };
+    // 订单费用明细跟随全局所选店铺；其余报表不含店铺维度。
+    const params = scopeReportQuery(
+      { ...query, startDate: dateRange.value?.[0], endDate: dateRange.value?.[1] },
+      kind.value === 'accruals' ? shopStore.selectedId : undefined
+    );
     if (kind.value === 'accruals' && accrualView.value === 'chart') {
       trendQuery.value = params;
       return;
@@ -283,7 +290,7 @@ async function getLines() {
   const version = ++lineVersion;
   linesLoading.value = true; linesError.value = '';
   try {
-    const result = await listAccrualLines(lineQuery);
+    const result = await listAccrualLines(scopeReportQuery(lineQuery, shopStore.selectedId));
     if (version !== lineVersion) return;
     lines.value = result.data?.rows ?? []; linesTotal.value = result.data?.total ?? 0;
   } catch {
@@ -304,6 +311,13 @@ function showDetail(row: ReportRow) {
   }
 }
 restorePreferences();
+// 切换全局店铺后订单费用明细需要重新查询。
+watch(() => shopStore.selectionKey, () => {
+  if (kind.value !== 'accruals') return;
+  requestVersion++;
+  rows.value = []; total.value = 0; query.pageNum = 1;
+  getList();
+});
 function captureSavedView(): ViewSnapshot { return { query: { ...query, pageNum: 1 }, columns: columnState.value, dateRange: dateRange.value ?? [] }; }
 function applySavedView(snapshot: ViewSnapshot) {
   const saved = snapshot.query || {};
@@ -327,6 +341,7 @@ async function savedViewAction(action: 'add' | 'rename' | 'remove' | 'reset') { 
 trendQuery.value = { ...query, startDate: dateRange.value?.[0], endDate: dateRange.value?.[1] };
 onMounted(async () => {
   await nextTick();
+  if (kind.value === 'accruals') void shopStore.loadShops().catch(() => {});
   layoutObserver = new ResizeObserver(updateTableHeight);
   if (toolbarRef.value) layoutObserver.observe(toolbarRef.value);
   if (footerRef.value) layoutObserver.observe(footerRef.value);

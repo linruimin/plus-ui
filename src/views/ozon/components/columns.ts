@@ -48,6 +48,8 @@ export function gridColumnWidth(column: ReportColumn): number {
   if (prop === '__actions') return column.width;
   if (column.attachment) return 124;
   if (prop === 'id') return 80;
+  // 店铺是短文本，不适用 name 字段的宽列规则。
+  if (prop === 'shopName' || prop === 'shopId') return Math.max(96, Math.min(160, column.width ?? 120));
   if (/No$|Id$|sku/i.test(prop)) return Math.max(150, Math.min(200, column.width));
   const labelWidth = [...label].reduce((sum, char) => sum + (char.charCodeAt(0) > 255 ? 13 : 7), 0) + 30;
   if (column.numeric) return Math.max(112, Math.min(180, labelWidth));
@@ -168,6 +170,11 @@ export const reportColumns: Record<string, ReportColumn[]> = {
     }
   ],
   "accruals": [
+    {
+      "prop": "shopName",
+      "label": "店铺",
+      "width": 120
+    },
     {
       "prop": "accrualId",
       "label": "应计费用编号",
@@ -317,6 +324,11 @@ export const reportColumns: Record<string, ReportColumn[]> = {
     }
   ],
   "accrualLines": [
+    {
+      "prop": "shopName",
+      "label": "店铺",
+      "width": 120
+    },
     {
       "prop": "accrualId",
       "label": "应计费用编号",

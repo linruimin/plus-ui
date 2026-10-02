@@ -27,3 +27,11 @@ export function listSalesProducts(query: ReportQuery): AxiosPromise<SalesProduct
 export function listSalesTransactions(query: ReportQuery): AxiosPromise<ProductSale[]> {
   return request({ url: '/ozon/report/accruals/sales-transactions', method: 'get', params: query });
 }
+
+/** 全局店铺范围覆盖报表查询；scopeShopId 只随本次请求发送，不进入视图快照。 */
+export function scopeReportQuery(query: ReportQuery, scopeShopId?: string): ReportQuery {
+  const result: ReportQuery = { ...query };
+  if (scopeShopId) result.scopeShopId = scopeShopId;
+  else delete result.scopeShopId;
+  return result;
+}
