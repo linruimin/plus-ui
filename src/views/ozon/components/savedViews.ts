@@ -8,6 +8,8 @@ export interface ViewSnapshot {
   dateRange?: string[];
   groups?: ViewOrder[];
   sorts?: ViewOrder[];
+  /** 「本页合计」行每列的展示方式（列 prop → 'sum' 求和 / 'none' 不展示）。 */
+  summary?: Record<string, 'sum' | 'none'>;
   /** 内置视图预设版本号；预设升级时用它把新列设置同步到已保存的快照。 */
   rev?: number;
 }

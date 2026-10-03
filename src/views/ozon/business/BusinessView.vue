@@ -15,7 +15,7 @@
    </div></div></template>
    <el-alert v-if="storageWarning || viewManager.storageWarning.value" title="当前浏览器无法保存视图设置" type="warning" :closable="false"/>
    <el-alert v-if="error" :title="error" type="error" :closable="false"/>
-   <div ref="tableViewport" class="table-viewport">
+   <div ref="tableViewport" class="table-viewport" @click="onSummaryCellClick">
    <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':row.__new?'business-new-row':''" :height="tableHeight" :default-sort="defaultSort" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
     <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ row.__new?'＋':(rowNumbers.get(String(row.id))??'') }}</span></template></el-table-column>
     <el-table-column v-for="field in visibleColumns" :key="field.prop" :prop="field.prop" :width="gridColumnWidth(field)" :fixed="field.fixed" :sortable="field.attachment||field.prop==='__actions'||field.multiple||field.customId?false:'custom'" :align="field.numeric&&!field.reference?'right':'left'" show-overflow-tooltip>
@@ -67,6 +67,12 @@
     <button v-if="checkPermi([permission('add')])" type="button" role="menuitem" @click.stop="insertAtRow('above')">在上方插入行</button>
     <button v-if="checkPermi([permission('add')])" type="button" role="menuitem" @click.stop="insertAtRow('below')">在下方插入行</button>
     <button v-if="checkPermi([permission('remove')])" type="button" role="menuitem" class="danger-action" :disabled="rowBusy[rowMenu.row.id]" @click.stop="deleteRowFromMenu">删除该行</button>
+   </div>
+   <div v-if="summaryMenu" class="grid-context-menu summary-menu" :style="{left:summaryMenu.x+'px',top:summaryMenu.y+'px'}" role="menu">
+    <div class="menu-title">{{ summaryMenu.label }} · 汇总</div>
+    <button type="button" role="menuitem" @click.stop="setSummaryMode('none')"><span class="summary-tick">{{ summaryMenuMode==='none'?'✓':'' }}</span>不展示</button>
+    <button v-if="summaryMenuSummable" type="button" role="menuitem" @click.stop="setSummaryMode('sum')"><span class="summary-tick">{{ summaryMenuMode==='sum'?'✓':'' }}</span>求和</button>
+    <small v-else>该列不是数值列，只能选择「不展示」</small>
    </div>
    </div>
    <div ref="footerRef" class="business-pagination"><pagination :auto-scroll="false" v-show="total>0" v-model:page="query.pageNum" v-model:limit="query.pageSize" :total="total" @pagination="getList"/></div>
@@ -172,6 +178,9 @@ function resolveConditions(source:Record<string,any>):FilterCondition[]{
 const query=reactive<BusinessQuery>({pageNum:1,pageSize:[10,20,50,100].includes(Number(savedQuery.pageSize))?Number(savedQuery.pageSize):100,orderByColumn:validColumns.has(savedQuery.orderByColumn||'')?savedQuery.orderByColumn:'id',isAsc:savedQuery.isAsc==='asc'?'asc':'desc',manualOrder:savedQuery.manualOrder===true,keyword:typeof savedQuery.keyword==='string'?savedQuery.keyword:'',filters:{},ends:{},equals:{},conditions:resolveConditions(savedQuery as Record<string,any>),conjunction:savedQuery.conjunction==='or'?'or':'and'});
 const initialColumns=saved.columns||{hidden:['id','createdAt','updatedAt']};
 const columnState=ref(normalizeColumns(initialColumns,allColumns.value));
+/** 「本页合计」行每列的展示方式（多维表格口径）：'sum' 求和 / 'none' 不展示；未选过的沿用历史默认（可求和的列默认求和）。
+ *  ⚠️ 必须声明在 useSavedViews 之前：它在 setup 阶段就会 restore() 一次（写回本状态），晚了会踩暂时性死区。 */
+const summaryState=ref<Record<string,'sum'|'none'>>({});
 let customColumnsLoaded=false;
 const storageWarning=ref(false);
 const groups=ref<ViewOrder[]>([]),sorts=ref<ViewOrder[]>([]);
@@ -181,7 +190,7 @@ function cleanOrder(value:unknown,max:number):ViewOrder[]{
   return (Array.isArray(value)?value:[]).filter(v=>v&&orderColumns.value.some(c=>c.prop===v.field)&&!seen.has(v.field)&&seen.add(v.field))
     .slice(0,max).map(v=>({field:v.field,desc:v.desc===true}));
 }
-function captureView():ViewSnapshot{return {query:{...query,pageNum:1},columns:columnState.value,groups:groups.value,sorts:sorts.value};}
+function captureView():ViewSnapshot{return {query:{...query,pageNum:1},columns:columnState.value,groups:groups.value,sorts:sorts.value,summary:{...summaryState.value}};}
 function restoreView(snapshot:ViewSnapshot){
   const q=snapshot.query||{};
   Object.assign(query,{pageNum:1,pageSize:[10,20,50,100].includes(Number(q.pageSize))?Number(q.pageSize):100,
@@ -190,6 +199,7 @@ function restoreView(snapshot:ViewSnapshot){
   groups.value=query.manualOrder?[]:cleanOrder(snapshot.groups,3);
   sorts.value=query.manualOrder?[]:cleanOrder(snapshot.sorts??[{field:query.orderByColumn,desc:query.isAsc!=='asc'}],5);
   columnState.value=normalizeColumns(snapshot.columns,allColumns.value);
+  summaryState.value=cleanSummary(snapshot.summary);
 }
 const defaults=(viewPresets as Record<string,SavedView[]>)[props.table];
 const viewManager=useSavedViews(storageKey+':saved-views',defaults,captureView,restoreView);
@@ -237,6 +247,34 @@ function sortChange({prop,order}:{prop:string;order:string|null}){
 }
 watch([groups,sorts],()=>{if(groups.value.length||sorts.value.length)query.manualOrder=false;},{deep:true});
 const summableColumns=computed(()=>visibleColumns.value.filter(canSumColumn));
+/** 这一列能不能选「求和」：数值列即可（引用列 / 附件列 / 多值列除外）。 */
+function canPickSum(field:BusinessField){return !!(field.numeric&&!field.reference&&!field.attachment&&!field.multiple);}
+function summaryMode(field:BusinessField){const pick=summaryState.value[field.prop];if(pick==='sum'||pick==='none')return pick;return canSumColumn(field)?'sum':'none';}
+/** 汇总行各列的合计值：按当前选择计算，口径与 sumRowValues 一致。 */
+function summaryTotals(){
+ const sums:Record<string,number>={};
+ for(const field of visibleColumns.value){
+  if(!canPickSum(field)||summaryMode(field)!=='sum')continue;
+  let found=false,total=0;
+  for(const row of rows.value){
+   const raw=row[field.prop];
+   if(raw===null||raw===undefined||raw==='')continue;
+   const number=Number(raw);
+   if(!Number.isFinite(number))continue;
+   total+=number;found=true;
+  }
+  if(found)sums[field.prop]=Math.round((total+Number.EPSILON)*1e8)/1e8;
+ }
+ return sums;
+}
+function cleanSummary(value:unknown):Record<string,'sum'|'none'>{
+ const source=value&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:{};
+ const result:Record<string,'sum'|'none'>={};
+ for(const [prop,item] of Object.entries(source)){
+  if((item==='sum'||item==='none')&&allColumns.value.some(field=>field.prop===prop))result[prop]=item;
+ }
+ return result;
+}
 const rowNumbers=computed(()=>new Map(rows.value.map((row,index)=>[String(row.id),(query.pageNum-1)*query.pageSize+index+1])));
 const displayRows=computed<BusinessRow[]>(()=>{
   const result:BusinessRow[]=[];
@@ -260,16 +298,21 @@ const displayRows=computed<BusinessRow[]>(()=>{
   if(drafts[NEW_ROW_KEY])result.unshift(drafts[NEW_ROW_KEY]);
   return result;
 });
-function summaryMethod({columns}:{columns:Array<{property?:string}>}):string[]{
- const sums=sumRowValues(rows.value,summableColumns.value);
+/** 「本页合计」行渲染。用 computed 产出函数：选择/数据/列变化时换一个新函数实例，
+ *  el-table 内部按 prop 身份判断是否需要重算 footer，这样才刷得出来。 */
+const summaryMethod=computed(()=>{
+ const sums=summaryTotals();
  const first=visibleColumns.value[0]?.prop;
- return columns.map(column=>{
+ return ({columns}:{columns:Array<{property?:string}>}):string[]=>columns.map(column=>{
   if(column.property==='__rowNumber')return '';
   const field=visibleColumns.value.find(item=>item.prop===column.property);
-  const value=field&&Object.prototype.hasOwnProperty.call(sums,field.prop)?'求和 '+display(sums,field):'';
-  return column.property===first?'本页合计 · '+rows.value.length+'条'+(value?' · '+value:''):value;
+  if(!field)return '';
+  const label=column.property===first?'本页合计 · '+rows.value.length+'条':'';
+  if(summaryMode(field)!=='sum')return label;
+  const value=Object.prototype.hasOwnProperty.call(sums,field.prop)?'求和 '+display(sums,field):'';
+  return label?label+(value?' · '+value:''):value;
  });
-}
+});
 function rowKey(row:BusinessRow){return String(row.__key??row.id);}
 function display(row:BusinessRow,field:BusinessField){let v=row[field.prop];if(field.reference){v=row[field.prop+'Label']||v;if(Array.isArray(v))return v.length?v.join('、'):'—';}if(v===null||v===undefined||v==='')return '—';if(field.customId)return String(v);if(field.numeric&&!field.reference)return formatNumericColumn(v,field);return String(v);}
 const formRef=ref<FormInstance>(),dialogOpen=ref(false),saving=ref(false),editing=ref(false);const form=ref<BusinessRow>({});
@@ -279,7 +322,31 @@ const customColumnAnchor=ref<{prop:string;side:'before'|'after'}|null>(null);
 const customEdit=ref<{rowId:string;fieldId:number;value:string}|null>(null),customSaving=ref(false);
 const rowMenu=ref<{x:number;y:number;row:BusinessRow}|null>(null);
 const pendingInsert=ref<{anchorId:string|number;placement:'above'|'below'}|null>(null);
-function closeRowMenu(){rowMenu.value=null;columnMenu.value=null;}
+/** 汇总行单元格的弹层：点「本页合计」那一行的格子打开，选「不展示 / 求和」。 */
+const summaryMenu=ref<{prop:string;label:string;x:number;y:number}|null>(null);
+const summaryMenuField=computed(()=>summaryMenu.value?visibleColumns.value.find(field=>field.prop===summaryMenu.value!.prop)??null:null);
+const summaryMenuSummable=computed(()=>!!summaryMenuField.value&&canPickSum(summaryMenuField.value));
+const summaryMenuMode=computed(()=>summaryMenuField.value?summaryMode(summaryMenuField.value):'none');
+function closeRowMenu(){rowMenu.value=null;columnMenu.value=null;summaryMenu.value=null;}
+/** 汇总行点击：footer 行的 td 与列一一对应（第 0 个是 # 列，故 -1 取到配置列）。 */
+function onSummaryCellClick(event:MouseEvent){
+ const cell=(event.target as HTMLElement|null)?.closest?.('.el-table__footer-wrapper td,.el-table__footer td') as HTMLElement|null;
+ if(!cell||!cell.parentElement)return;
+ const index=Array.prototype.indexOf.call(cell.parentElement.children,cell);
+ const field=index>0?visibleColumns.value[index-1]:undefined;
+ if(!field||field.prop==='__actions')return;
+ event.stopPropagation(); // 别让 document 上的「点空白关菜单」立刻把它关掉
+ rowMenu.value=null;columnMenu.value=null;
+ if(summaryMenu.value?.prop===field.prop){summaryMenu.value=null;return;}
+ const rect=cell.getBoundingClientRect();
+ summaryMenu.value={prop:field.prop,label:field.label,x:Math.max(8,Math.min(rect.left,window.innerWidth-200)),y:Math.min(rect.bottom+2,window.innerHeight-150)};
+}
+function setSummaryMode(mode:'sum'|'none'){
+ const prop=summaryMenu.value?.prop;
+ if(!prop)return;
+ summaryState.value={...summaryState.value,[prop]:mode};
+ persist();
+}
 function onHeaderContextMenu(column:{property?:string},event:MouseEvent){const field=activeColumns.value.find(f=>f.prop===column.property&&f.prop!=='__actions');if(!field)return;event.preventDefault();rowMenu.value=null;columnMenu.value={field,x:Math.max(8,Math.min(event.clientX,window.innerWidth-230)),y:Math.max(8,Math.min(event.clientY,window.innerHeight-230))};}
 function hideColumnFromMenu(){const prop=columnMenu.value?.field.prop;closeRowMenu();if(!prop||visibleColumns.value.filter(f=>f.prop!=='__actions').length<=1)return;columnState.value=normalizeColumns({...columnState.value,hidden:[...columnState.value.hidden,prop]},allColumns.value);}
 function openCustomColumn(side:'before'|'after'){const field=columnMenu.value?.field;if(!field)return;customColumnAnchor.value={prop:field.prop,side};customColumnName.value='';customColumnType.value='text';closeRowMenu();customColumnOpen.value=true;}
@@ -437,7 +504,7 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();void getList();});let 
 .business-view :deep(.ozon-data-grid .el-table__footer-wrapper td.el-table__cell){background:var(--el-fill-color-light);height:28px;padding:0;font-family:inherit;font-size:13px;font-weight:400;line-height:20px;color:var(--el-text-color-primary)}
 .business-view :deep(.ozon-data-grid .el-table__footer-wrapper .cell){line-height:20px}
 .business-view :deep(.ozon-data-grid .el-table__footer-wrapper td.el-table__cell:nth-child(2)){font-weight:400}
-.menu-title{padding:6px 12px;color:var(--el-text-color-secondary);font-size:12px;border-bottom:1px solid var(--el-border-color-lighter)}.grid-context-menu{position:fixed;z-index:3000;min-width:170px;padding:4px;background:var(--el-bg-color-overlay);border:1px solid var(--el-border-color-light);border-radius:6px;box-shadow:var(--el-box-shadow-light)}.grid-context-menu button{display:block;width:100%;padding:8px 12px;text-align:left;background:none;border:0;color:var(--el-text-color-primary);cursor:pointer;font:inherit}.grid-context-menu button:hover{background:var(--el-fill-color-light)}.grid-context-menu button:disabled{color:var(--el-text-color-placeholder);cursor:not-allowed}.grid-context-menu .danger-action{color:var(--el-color-danger)}.grid-context-menu small{display:block;padding:4px 12px;color:var(--el-text-color-secondary);font-size:11px}.field-heading{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.field-type-icon{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px solid var(--el-border-color);border-radius:3px;font-size:11px;font-weight:600;color:var(--el-color-primary);line-height:1}.field-type-formula{font-family:Georgia,serif;font-style:italic}.horizontal-track{height:16px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}.business-view :deep(.ozon-data-grid .el-scrollbar__bar.is-horizontal){display:none}.business-view :deep(.ozon-data-grid .row-number-column){color:var(--el-text-color-secondary);font-size:12px}.business-view :deep(.ozon-data-grid .caret-wrapper){display:none}
+.menu-title{padding:6px 12px;color:var(--el-text-color-secondary);font-size:12px;border-bottom:1px solid var(--el-border-color-lighter)}.grid-context-menu{position:fixed;z-index:3000;min-width:170px;padding:4px;background:var(--el-bg-color-overlay);border:1px solid var(--el-border-color-light);border-radius:6px;box-shadow:var(--el-box-shadow-light)}.grid-context-menu button{display:block;width:100%;padding:8px 12px;text-align:left;background:none;border:0;color:var(--el-text-color-primary);cursor:pointer;font:inherit}.grid-context-menu button:hover{background:var(--el-fill-color-light)}.grid-context-menu button:disabled{color:var(--el-text-color-placeholder);cursor:not-allowed}.grid-context-menu .danger-action{color:var(--el-color-danger)}.grid-context-menu small{display:block;padding:4px 12px;color:var(--el-text-color-secondary);font-size:11px}.grid-context-menu.summary-menu{min-width:158px}.grid-context-menu.summary-menu button{display:flex;align-items:center;gap:6px}.grid-context-menu.summary-menu .summary-tick{width:10px;color:var(--el-color-primary);font-weight:700;line-height:1}.business-view :deep(.ozon-data-grid .el-table__footer-wrapper td){cursor:pointer}.business-view :deep(.ozon-data-grid .el-table__footer-wrapper td:hover){background:var(--el-color-primary-light-9)}.field-heading{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.field-type-icon{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border:1px solid var(--el-border-color);border-radius:3px;font-size:11px;font-weight:600;color:var(--el-color-primary);line-height:1}.field-type-formula{font-family:Georgia,serif;font-style:italic}.horizontal-track{height:16px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}.business-view :deep(.ozon-data-grid .el-scrollbar__bar.is-horizontal){display:none}.business-view :deep(.ozon-data-grid .row-number-column){color:var(--el-text-color-secondary);font-size:12px}.business-view :deep(.ozon-data-grid .caret-wrapper){display:none}
 .business-view :deep(.ozon-data-grid .el-input__wrapper),.business-view :deep(.ozon-data-grid .el-select__wrapper){min-height:28px}
 .business-view :deep(.ozon-data-grid .el-input__inner),.business-view :deep(.ozon-data-grid .el-select__selected-item),.business-view :deep(.ozon-data-grid .el-button){font-family:inherit}
 .business-view :deep(.ozon-data-grid .el-input__inner),.business-view :deep(.ozon-data-grid .el-select__selected-item){font-size:14px}

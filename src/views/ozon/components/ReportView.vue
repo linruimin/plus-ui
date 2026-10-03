@@ -48,7 +48,7 @@
       </template>
       <el-alert v-if="storageWarning || viewManager.storageWarning.value" title="浏览器未允许保存设置，本次调整仍有效，但重新打开后可能无法恢复。" type="warning" :closable="false" />
       <SalesTrendChart v-if="kind === 'accruals' && accrualView === 'chart'" :query="trendQuery" :storage-key="basePreferenceKey + ':chart'" @detail="showDetail" />
-      <div v-if="!trendOnly" ref="tableViewport" class="table-viewport">
+      <div v-if="!trendOnly" ref="tableViewport" class="table-viewport" @click="onSummaryCellClick">
       <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading" :data="displayRows" border stripe :show-summary="rows.length>0" :summary-method="summaryMethod" :height="tableHeight" :row-key="rowKey" :row-class-name="rowClass" :default-sort="defaultSort" :empty-text="error ? '查询失败，请重试' : '没有符合条件的记录'" @sort-change="sortChange">
         <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ rowNumbers.get(rowKey(row)) }}</span></template></el-table-column>
         <el-table-column v-for="column in tableColumns" :key="column.prop" :prop="column.prop" :label="column.label" :width="gridColumnWidth(column)" :fixed="column.fixed" :min-width="gridColumnWidth(column)" :sortable="column.attachment || column.prop === '__actions' ? false : 'custom'" :align="column.numeric ? 'right' : 'left'" show-overflow-tooltip>
@@ -58,6 +58,12 @@
       </el-table>
       <div v-show="hasHorizontalScroll" ref="horizontalTrack" class="horizontal-track" aria-label="表格横向滚动条" @scroll="onTrackScroll"><div :style="{width:scrollContentWidth+'px',height:'1px'}"/></div>
         <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" class="table-error" />
+      </div>
+      <div v-if="summaryMenu" class="grid-context-menu summary-menu" :style="{ left: summaryMenu.x + 'px', top: summaryMenu.y + 'px' }" role="menu">
+        <div class="menu-title">{{ summaryMenu.label }} · 汇总</div>
+        <button type="button" role="menuitem" @click.stop="setSummaryMode('none')"><span class="summary-tick">{{ summaryMenuMode === 'none' ? '✓' : '' }}</span>不展示</button>
+        <button v-if="summaryMenuSummable" type="button" role="menuitem" @click.stop="setSummaryMode('sum')"><span class="summary-tick">{{ summaryMenuMode === 'sum' ? '✓' : '' }}</span>求和</button>
+        <small v-else>该列不是数值列，只能选择「不展示」</small>
       </div>
       <div v-if="!trendOnly" ref="footerRef" class="table-footer">
       <pagination :auto-scroll="false" v-model:page="query.pageNum" v-model:limit="query.pageSize" :page-sizes="[10, 20, 50, 100]" :total="total" @pagination="getList" />
@@ -209,6 +215,63 @@ function handleOrderChange() { query.pageNum = 1; getList(); }
 const defaultSort = computed(() => ({ prop: query.orderByColumn, order: query.isAsc === 'asc' ? 'ascending' as const : 'descending' as const }));
 const tableKey = computed(() => [kind.value, query.groupBy, query.orderByColumn, query.isAsc, query.groupDesc, JSON.stringify(columnState.value)].join(':'));
 const summableColumns = computed(() => tableColumns.value.filter(canSumColumn));
+/** 「本页合计」行每列的展示方式（多维表格口径）：'sum' 求和 / 'none' 不展示；未选过的沿用历史默认（可求和的列默认求和）。 */
+const summaryState = ref<Record<string, 'sum' | 'none'>>({});
+/** 这一列能不能选「求和」：数值列即可（附件列、操作列除外）。 */
+function canPickSum(field: ReportColumn) { return !!(field.numeric && !field.attachment && field.prop !== '__actions'); }
+function summaryMode(field: ReportColumn) {
+  const pick = summaryState.value[field.prop];
+  if (pick === 'sum' || pick === 'none') return pick;
+  return canSumColumn(field) ? 'sum' : 'none';
+}
+/** 汇总行各列的合计值：按当前选择计算，口径与 sumRowValues 一致。 */
+function summaryTotals(): Record<string, number> {
+  const sums: Record<string, number> = {};
+  for (const field of tableColumns.value) {
+    if (!canPickSum(field) || summaryMode(field) !== 'sum') continue;
+    let found = false, total = 0;
+    for (const row of rows.value) {
+      const raw = row[field.prop];
+      if (raw === null || raw === undefined || raw === '') continue;
+      const number = Number(raw);
+      if (!Number.isFinite(number)) continue;
+      total += number; found = true;
+    }
+    if (found) sums[field.prop] = Math.round((total + Number.EPSILON) * 1e8) / 1e8;
+  }
+  return sums;
+}
+function cleanSummary(value: unknown): Record<string, 'sum' | 'none'> {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const result: Record<string, 'sum' | 'none'> = {};
+  for (const [prop, item] of Object.entries(source)) {
+    if ((item === 'sum' || item === 'none') && allTableColumns.value.some(field => field.prop === prop)) result[prop] = item;
+  }
+  return result;
+}
+/** 汇总行单元格弹层：点「本页合计」那一行的格子打开。 */
+const summaryMenu = ref<{ prop: string; label: string; x: number; y: number } | null>(null);
+const summaryMenuField = computed(() => summaryMenu.value ? tableColumns.value.find(field => field.prop === summaryMenu.value!.prop) ?? null : null);
+const summaryMenuSummable = computed(() => !!summaryMenuField.value && canPickSum(summaryMenuField.value));
+const summaryMenuMode = computed(() => summaryMenuField.value ? summaryMode(summaryMenuField.value) : 'none');
+/** footer 行的 td 与列一一对应（第 0 个是 # 列，故 -1 取到配置列）。 */
+function onSummaryCellClick(event: MouseEvent) {
+  const cell = (event.target as HTMLElement | null)?.closest?.('.el-table__footer-wrapper td,.el-table__footer td') as HTMLElement | null;
+  if (!cell || !cell.parentElement) return;
+  const index = Array.prototype.indexOf.call(cell.parentElement.children, cell);
+  const field = index > 0 ? tableColumns.value[index - 1] : undefined;
+  if (!field || field.prop === '__actions') return;
+  event.stopPropagation();
+  if (summaryMenu.value?.prop === field.prop) { summaryMenu.value = null; return; }
+  const rect = cell.getBoundingClientRect();
+  summaryMenu.value = { prop: field.prop, label: field.label, x: Math.max(8, Math.min(rect.left, window.innerWidth - 200)), y: Math.min(rect.bottom + 2, window.innerHeight - 150) };
+}
+function setSummaryMode(mode: 'sum' | 'none') {
+  const prop = summaryMenu.value?.prop;
+  if (!prop) return;
+  summaryState.value = { ...summaryState.value, [prop]: mode };
+  saveView();
+}
 const rowNumbers=computed(()=>new Map(rows.value.map((row,index)=>[rowKey(row),(query.pageNum-1)*query.pageSize+index+1])));
 watch(tableKey,bindHorizontalScroll);watch(rows,bindHorizontalScroll);
 /** 分组键：交货申请与退货报表取 SKU 列，产品月报取卖家 SKU。 */
@@ -235,16 +298,21 @@ const displayRows = computed<ReportRow[]>(() => {
   });
   return result;
 });
-function summaryMethod({ columns }: { columns: Array<{ property?: string }> }): string[] {
-  const sums = sumRowValues(rows.value, summableColumns.value);
+/** 「本页合计」行渲染。用 computed 产出函数：选择/数据/列变化时换一个新函数实例，
+ *  el-table 内部按 prop 身份判断是否需要重算 footer，这样才刷得出来。 */
+const summaryMethod = computed(() => {
+  const sums = summaryTotals();
   const first = tableColumns.value[0]?.prop;
-  return columns.map(column => {
-    if(column.property==='__rowNumber')return '';
+  return ({ columns }: { columns: Array<{ property?: string }> }): string[] => columns.map(column => {
+    if (column.property === '__rowNumber') return '';
     const field = tableColumns.value.find(item => item.prop === column.property);
-    const value = field && Object.prototype.hasOwnProperty.call(sums, field.prop) ? '求和 ' + display(sums[field.prop], field) : '';
-    return column.property === first ? '本页合计 · ' + rows.value.length + '条' + (value ? ' · ' + value : '') : value;
+    if (!field) return '';
+    const label = column.property === first ? '本页合计 · ' + rows.value.length + '条' : '';
+    if (summaryMode(field) !== 'sum') return label;
+    const value = Object.prototype.hasOwnProperty.call(sums, field.prop) ? '求和 ' + display(sums[field.prop], field) : '';
+    return label ? label + (value ? ' · ' + value : '') : value;
   });
-}
+});
 function rowKey(row: ReportRow) { return String(row.__key ?? row.rowId ?? row.id ?? [row.reportMonth ?? '', row.sku ?? '', row.articleNo ?? '', row.shopId ?? ''].join('|')); }
 function rowClass({ row }: { row: ReportRow }) { return row.__group ? 'report-group-row' : ''; }
 function display(value: ReportRow[string], column: ReportColumn) {
@@ -334,7 +402,7 @@ watch(() => shopStore.selectionKey, () => {
   rows.value = []; total.value = 0; query.pageNum = 1;
   getList();
 });
-function captureSavedView(): ViewSnapshot { return { query: { ...query, pageNum: 1 }, columns: columnState.value, dateRange: dateRange.value ?? [] }; }
+function captureSavedView(): ViewSnapshot { return { query: { ...query, pageNum: 1 }, columns: columnState.value, dateRange: dateRange.value ?? [], summary: { ...summaryState.value } }; }
 function applySavedView(snapshot: ViewSnapshot) {
   const saved = snapshot.query || {};
   for (const key of Object.keys(query)) Reflect.deleteProperty(query, key);
@@ -348,6 +416,7 @@ function applySavedView(snapshot: ViewSnapshot) {
   if (saved.orderByColumn === 'rowId' || saved.orderByColumn === 'id') query.orderByColumn = saved.orderByColumn;
   dateRange.value = normalizeDates(snapshot.dateRange);
   columnState.value = normalizeColumns(snapshot.columns, allTableColumns.value);
+  summaryState.value = cleanSummary(snapshot.summary);
 }
 const viewDefaults = (viewPresets as Record<string, SavedView[]>)[kind.value];
 const hasLegacy = Object.keys(readPreference(preferenceKey.value)).length > 0;
@@ -378,6 +447,18 @@ onBeforeUnmount(() => {
 <style scoped>
 /* 分组和本页合计保留各列，数值对齐到原列。 */
 .group-cell { display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap; }.group-name { font-size: 14px; font-weight: 600; color: var(--el-text-color-primary); }.group-count { font-size: 12px; font-weight: 400; color: var(--el-text-color-secondary); }.group-sum { display: inline-flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }.sum-prefix { font-size: 12px; font-weight: 400; color: var(--el-text-color-secondary); }.sum-value { font-size: 13px; font-weight: 400; color: var(--el-text-color-primary); }
+
+/* 「本页合计」行的弹层：点格子选「不展示 / 求和」。 */
+.grid-context-menu { position: fixed; z-index: 3000; min-width: 170px; padding: 4px; background: var(--el-bg-color-overlay); border: 1px solid var(--el-border-color-light); border-radius: 6px; box-shadow: var(--el-box-shadow-light); }
+.grid-context-menu .menu-title { padding: 6px 12px; color: var(--el-text-color-secondary); font-size: 12px; border-bottom: 1px solid var(--el-border-color-lighter); }
+.grid-context-menu button { display: block; width: 100%; padding: 8px 12px; text-align: left; background: none; border: 0; color: var(--el-text-color-primary); cursor: pointer; font: inherit; }
+.grid-context-menu button:hover { background: var(--el-fill-color-light); }
+.grid-context-menu small { display: block; padding: 4px 12px; color: var(--el-text-color-secondary); font-size: 11px; }
+.grid-context-menu.summary-menu { min-width: 158px; }
+.grid-context-menu.summary-menu button { display: flex; align-items: center; gap: 6px; }
+.grid-context-menu.summary-menu .summary-tick { width: 10px; color: var(--el-color-primary); font-weight: 700; line-height: 1; }
+.table-viewport :deep(.ozon-data-grid .el-table__footer-wrapper td) { cursor: pointer; }
+.table-viewport :deep(.ozon-data-grid .el-table__footer-wrapper td:hover) { background: var(--el-color-primary-light-9); }
 
 .report-page { overflow: hidden; padding-top: 0; }
 .line-settings { display: flex; justify-content: flex-end; margin-bottom: 10px; }
