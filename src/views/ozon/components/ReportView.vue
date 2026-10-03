@@ -143,19 +143,34 @@ const tableViewport = ref<HTMLElement>();
 const horizontalTrack=ref<HTMLElement>(),scrollContentWidth=ref(0),hasHorizontalScroll=ref(false);
 let bodyScroll:HTMLElement|undefined;let scrollObserver:ResizeObserver|undefined;
 /** 表格本体 ↔ 底部滑竿 双向同步。
- *  ⚠️ 程序化写 scrollLeft 会再触发 scroll 事件，两边不加约束就会互相回推：拖动滑竿时表格那侧的
- *  回声会把滑竿拽回上一帧的位置，而两者可滚动范围天生差 1px（表格 1px 边框）又会被互相夹取 → 滑动时抖。
- *  所以：① 回写期间上锁（不打断正在被拖的那一侧）；② 两者相差 ≤1px 视为已对齐，不再回写。 */
-let trackSyncing=false;
-function syncLeft(from:HTMLElement|undefined,to:HTMLElement|undefined){
-  if(!from||!to||Math.abs(from.scrollLeft-to.scrollLeft)<=1)return;
-  trackSyncing=true;
-  to.scrollLeft=from.scrollLeft;
-  requestAnimationFrame(()=>{trackSyncing=false;});
+ *  ⚠️ 程序化写 scrollLeft 同样会触发 scroll 事件，而且事件是**下一帧**才派发的：
+ *  收到回声时，人的手/拖动侧已经又走了一格，若拿回声里的旧位置回写，就会把滑竿往回拽一下
+ *  ——拖动时每帧往后退一点，看起来就是抖。另外两端可滚动范围天生差 1px（表格 1px 边框），
+ *  所以差 ≤1px 视为已对齐、不再回写。
+ *  做法：写之前记下「期望它变成多少」，收到该元素的 scroll 事件且值与某个期望吻合 → 判定为回声吞掉。 */
+const pendingBody:number[]=[],pendingTrack:number[]=[];
+function remember(list:number[],value:number){list.push(value);if(list.length>8)list.shift();}
+function consume(list:number[],value:number){const index=list.findIndex(item=>Math.abs(item-value)<=1);if(index<0)return false;list.splice(index,1);return true;}
+function scrollLimit(el:HTMLElement){return Math.max(0,el.scrollWidth-el.clientWidth);}
+function writeScroll(el:HTMLElement,target:number,mark:(value:number)=>void){
+  const next=Math.max(0,Math.min(target,scrollLimit(el)));
+  if(Math.abs(el.scrollLeft-next)<=1)return;
+  mark(next);
+  el.scrollLeft=next;
 }
-function syncTrack(){const view=bodyScroll?.querySelector('.el-scrollbar__view') as HTMLElement|null;const content=view?.scrollWidth||bodyScroll?.scrollWidth||0;scrollContentWidth.value=content;hasHorizontalScroll.value=content>(bodyScroll?.clientWidth||0)+1;if(!trackSyncing)syncLeft(bodyScroll,horizontalTrack.value);}
-function onBodyScroll(){if(trackSyncing)return;syncLeft(bodyScroll,horizontalTrack.value);}
-function onTrackScroll(){if(trackSyncing)return;syncLeft(horizontalTrack.value,bodyScroll);}
+function syncTrack(){const view=bodyScroll?.querySelector('.el-scrollbar__view') as HTMLElement|null;const content=view?.scrollWidth||bodyScroll?.scrollWidth||0;scrollContentWidth.value=content;hasHorizontalScroll.value=content>(bodyScroll?.clientWidth||0)+1;const track=horizontalTrack.value;if(track&&bodyScroll&&Math.abs(track.scrollLeft-bodyScroll.scrollLeft)>1)writeScroll(track,bodyScroll.scrollLeft,value=>remember(pendingTrack,value));}
+function onBodyScroll(){
+  const el=bodyScroll;if(!el)return;
+  if(consume(pendingBody,el.scrollLeft))return;
+  const track=horizontalTrack.value;if(!track)return;
+  writeScroll(track,el.scrollLeft,value=>remember(pendingTrack,value));
+}
+function onTrackScroll(){
+  const track=horizontalTrack.value;if(!track)return;
+  if(consume(pendingTrack,track.scrollLeft))return;
+  const el=bodyScroll;if(!el)return;
+  writeScroll(el,track.scrollLeft,value=>remember(pendingBody,value));
+}
 function bindHorizontalScroll(){void nextTick(()=>{const next=tableViewport.value?.querySelector('.el-table__body-wrapper .el-scrollbar__wrap') as HTMLElement|undefined;if(bodyScroll===next){syncTrack();return;}bodyScroll?.removeEventListener('scroll',onBodyScroll);scrollObserver?.disconnect();bodyScroll=next;if(!next)return;next.addEventListener('scroll',onBodyScroll,{passive:true});scrollObserver=new ResizeObserver(syncTrack);scrollObserver.observe(next);const view=next.querySelector('.el-scrollbar__view');if(view)scrollObserver.observe(view);syncTrack();});}
 const toolbarRef = ref<HTMLElement>();
 const footerRef = ref<HTMLElement>();
