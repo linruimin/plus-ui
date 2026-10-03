@@ -142,9 +142,20 @@ const filterOpen = ref(false);
 const tableViewport = ref<HTMLElement>();
 const horizontalTrack=ref<HTMLElement>(),scrollContentWidth=ref(0),hasHorizontalScroll=ref(false);
 let bodyScroll:HTMLElement|undefined;let scrollObserver:ResizeObserver|undefined;
-function syncTrack(){const view=bodyScroll?.querySelector('.el-scrollbar__view') as HTMLElement|null;const width=view?.scrollWidth||bodyScroll?.scrollWidth||0;scrollContentWidth.value=width;hasHorizontalScroll.value=width>(bodyScroll?.clientWidth||0)+1;if(horizontalTrack.value&&bodyScroll)horizontalTrack.value.scrollLeft=bodyScroll.scrollLeft;}
-function onBodyScroll(){if(horizontalTrack.value&&bodyScroll)horizontalTrack.value.scrollLeft=bodyScroll.scrollLeft;}
-function onTrackScroll(){if(bodyScroll&&horizontalTrack.value)bodyScroll.scrollLeft=horizontalTrack.value.scrollLeft;}
+/** 表格本体 ↔ 底部滑竿 双向同步。
+ *  ⚠️ 程序化写 scrollLeft 会再触发 scroll 事件，两边不加约束就会互相回推：拖动滑竿时表格那侧的
+ *  回声会把滑竿拽回上一帧的位置，而两者可滚动范围天生差 1px（表格 1px 边框）又会被互相夹取 → 滑动时抖。
+ *  所以：① 回写期间上锁（不打断正在被拖的那一侧）；② 两者相差 ≤1px 视为已对齐，不再回写。 */
+let trackSyncing=false;
+function syncLeft(from:HTMLElement|undefined,to:HTMLElement|undefined){
+  if(!from||!to||Math.abs(from.scrollLeft-to.scrollLeft)<=1)return;
+  trackSyncing=true;
+  to.scrollLeft=from.scrollLeft;
+  requestAnimationFrame(()=>{trackSyncing=false;});
+}
+function syncTrack(){const view=bodyScroll?.querySelector('.el-scrollbar__view') as HTMLElement|null;const content=view?.scrollWidth||bodyScroll?.scrollWidth||0;scrollContentWidth.value=content;hasHorizontalScroll.value=content>(bodyScroll?.clientWidth||0)+1;if(!trackSyncing)syncLeft(bodyScroll,horizontalTrack.value);}
+function onBodyScroll(){if(trackSyncing)return;syncLeft(bodyScroll,horizontalTrack.value);}
+function onTrackScroll(){if(trackSyncing)return;syncLeft(horizontalTrack.value,bodyScroll);}
 function bindHorizontalScroll(){void nextTick(()=>{const next=tableViewport.value?.querySelector('.el-table__body-wrapper .el-scrollbar__wrap') as HTMLElement|undefined;if(bodyScroll===next){syncTrack();return;}bodyScroll?.removeEventListener('scroll',onBodyScroll);scrollObserver?.disconnect();bodyScroll=next;if(!next)return;next.addEventListener('scroll',onBodyScroll,{passive:true});scrollObserver=new ResizeObserver(syncTrack);scrollObserver.observe(next);const view=next.querySelector('.el-scrollbar__view');if(view)scrollObserver.observe(view);syncTrack();});}
 const toolbarRef = ref<HTMLElement>();
 const footerRef = ref<HTMLElement>();
