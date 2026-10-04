@@ -24,6 +24,17 @@ export function sumRowValues(rows: Record<string, any>[], columns: ReportColumn[
   return sums;
 }
 
+/** toLocaleString 每次调用都会重新解析 locale 与 options；按小数位缓存 Intl 实例（几十行 × 十几个数字列时差别明显）。 */
+const numericFormatters = new Map<number, Intl.NumberFormat>();
+function numericFormatter(digits: number): Intl.NumberFormat {
+  let formatter = numericFormatters.get(digits);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    numericFormatters.set(digits, formatter);
+  }
+  return formatter;
+}
+
 /** 数字列按字段含义显示精度，分组小计与数据行共用。 */
 export function formatNumericColumn(value: unknown, column: ReportColumn): string {
   if (/^(id|.*Id|.*No)$|code|sku/i.test(column.prop) || /编号|编码/.test(column.label)) return String(value);
@@ -39,7 +50,7 @@ export function formatNumericColumn(value: unknown, column: ReportColumn): strin
   else if (column.decimal || column.prop.startsWith('calc') || /售价|价格|成本|费用|金额|到手|利润|货款|支付|回款|税额|倍数|密度/.test(label)) digits = 2;
   else digits = 0;
   digits = Math.min(Math.max(digits, 0), 6);
-  return number.toLocaleString('zh-CN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return numericFormatter(digits).format(number);
 }
 
 /** 多维表格风格的列宽：短数值列紧凑，长字段保留可读空间。 */
