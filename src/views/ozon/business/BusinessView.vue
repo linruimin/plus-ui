@@ -383,6 +383,24 @@ async function saveCustomCell(row:BusinessRow,field:BusinessField){const draft=c
 function onRowContextMenu(row:BusinessRow,_column:unknown,event:MouseEvent){if(row.__group||row.__new||(!checkPermi([permission('add')])&&!checkPermi([permission('remove')])))return;event.preventDefault();rowMenu.value={row,x:Math.max(8,Math.min(event.clientX,window.innerWidth-190)),y:Math.max(8,Math.min(event.clientY,window.innerHeight-130))};}
 function insertAtRow(placement:'above'|'below'){const row=rowMenu.value?.row;closeRowMenu();if(!row||row.__group||row.__new)return;void openAdd({anchorId:row.id,placement});}
 async function deleteRowFromMenu(){const row=rowMenu.value?.row;closeRowMenu();if(!row||rowBusy[row.id])return;await removeRow(row);}
+/** 新增时把当前视图的「等值」筛选条件预填到草稿行（多维表格口径）：视图里筛「物流方式 = 贝加尔」，
+ *  新增的记录就默认带上贝加尔，不用每次手填、填完还要再改一次才能留在本视图里。
+ *  只认 operator==='is'；引用列（要 id+label 一起写）、多值列、附件列、自定义字段、计算字段一律跳过，
+ *  店铺列也跳过（它由顶部店铺选择器统一给值）。预填只是初始值，用户仍可在草稿行里改。
+ *  条件之间是「或者」时不预填 —— 「A 或 B」没法用一个值表达。 */
+function seedViewConditions(draft:BusinessRow){
+ if((query.conjunction||'and')!=='and')return;
+ for(const condition of query.conditions||[]){
+  if(condition.operator!=='is')continue;
+  const prop=condition.field;
+  if(protectedFieldProps.has(prop))continue;
+  const field=activeFields.value.find(item=>item.prop===prop);
+  if(!field||field.reference||field.multiple||field.attachment||field.customId||field.readonly)continue;
+  const value=String(condition.value??'').trim();
+  if(!value)continue;
+  draft[prop]=value;
+ }
+}
 /** 新增：直接在表格里插入一行草稿行，编号即时预览，填完点右侧确认才落库。 */
 async function openAdd(anchor?:{anchorId:string|number;placement:'above'|'below'}){
  if(!canAdd.value)return;
@@ -392,6 +410,7 @@ async function openAdd(anchor?:{anchorId:string|number;placement:'above'|'below'
  for(const field of activeFields.value)draft[field.prop]=field.multiple?[]:(field.default??null);
  if(shopStore.selectedId&&activeFields.value.some(f=>f.prop==='shopId')){draft.shopId=String(shopStore.selectedId);draft.shopIdLabel=shopStore.selectedName;}
  if(props.table==='attachment')draft.sourceTable='product';
+ seedViewConditions(draft);
  drafts[NEW_ROW_KEY]=draft;
  if(numberProp){try{drafts[NEW_ROW_KEY][numberProp]=(await nextBusinessNumber(config.endpoint)).data;}catch{/* 预览失败不影响填写，保存时后端仍会生成编号 */}}
  await nextTick();
