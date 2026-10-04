@@ -37,12 +37,14 @@ export const uploadBusinessAttachment = (file:File, params:{sourceTable:string; 
 };
 
 
-/** 全局店铺覆盖视图原有的店铺条件，其余筛选保留；不修改视图快照。 */
+/** 全局店铺覆盖视图原有的店铺条件，其余筛选保留；不修改视图快照。
+ *  scopeShopId 传主页「全部」的哨兵值（见 store/modules/ozonShop.ts 的 ALL_SHOPS）时，
+ *  只撤掉店铺条件、**不**下发 scopeShopId —— 后端收到 null 就不加店铺过滤，各店铺数据一起显示。 */
 export function scopeBusinessQuery(params:BusinessQuery, scopeShopId?:string):BusinessQuery {
  const result={...params,filters:{...params.filters},equals:{...params.equals},conditions:(params.conditions||[]).map(condition=>({...condition}))};
  delete result.scopeShopId;
  if(scopeShopId){
-  result.scopeShopId=scopeShopId;
+  if(scopeShopId!=='all')result.scopeShopId=scopeShopId;
   delete result.filters.shopId;
   delete result.equals.shopId;
   result.conditions=result.conditions.filter(condition=>condition.field!=='shopId');

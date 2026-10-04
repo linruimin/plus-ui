@@ -6,7 +6,7 @@
       <el-button v-if="shopStore.error" size="small" @click="loadShops">重试加载店铺</el-button>
       <div v-loading="shopStore.loading" class="shop-list" role="group" aria-label="店铺选择">
         <button v-for="shop in orderedShops" :key="shop.id" type="button" class="shop-option"
-          :class="{ selected: shopStore.selectedId === shop.id }" :aria-pressed="shopStore.selectedId === shop.id" @click="selectShop(shop.id)">
+          :class="{ selected: (shopStore.selectedId || ALL_SHOPS) === shop.id }" :aria-pressed="(shopStore.selectedId || ALL_SHOPS) === shop.id" @click="selectShop(shop.id)">
           <span class="shop-name">{{ shop.name }}</span>
           <span class="shop-check">✓</span>
         </button>
@@ -18,14 +18,17 @@
 <script setup name="Index" lang="ts">
 import { computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import { useOzonShopStore } from '@/store/modules/ozonShop';
+import { ALL_SHOPS, useOzonShopStore } from '@/store/modules/ozonShop';
 
 const shopStore = useOzonShopStore();
-/** 俄1（id=1）固定在最前，其余按 id 升序；无法解析 id 的排最后。 */
-const orderedShops = computed(() => [...shopStore.shops].sort((a, b) => {
-  const na = Number(a.id), nb = Number(b.id);
-  return (Number.isFinite(na) ? na : Number.MAX_SAFE_INTEGER) - (Number.isFinite(nb) ? nb : Number.MAX_SAFE_INTEGER);
-}));
+/** 「全部」固定在最前；俄1（id=1）其后，其余按 id 升序，无法解析 id 的排最后。 */
+const orderedShops = computed(() => [
+  { id: ALL_SHOPS, name: '全部' },
+  ...[...shopStore.shops].sort((a, b) => {
+    const na = Number(a.id), nb = Number(b.id);
+    return (Number.isFinite(na) ? na : Number.MAX_SAFE_INTEGER) - (Number.isFinite(nb) ? nb : Number.MAX_SAFE_INTEGER);
+  })
+]);
 function loadShops() { void shopStore.loadShops().catch(() => {}); }
 function selectShop(id: string) {
   try {

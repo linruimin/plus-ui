@@ -31,7 +31,9 @@ export function listSalesTransactions(query: ReportQuery): AxiosPromise<ProductS
 /** 全局店铺范围覆盖报表查询；scopeShopId 只随本次请求发送，不进入视图快照。 */
 export function scopeReportQuery(query: ReportQuery, scopeShopId?: string): ReportQuery {
   const result: ReportQuery = { ...query };
-  if (scopeShopId) result.scopeShopId = scopeShopId;
+  // 主页「全部」的哨兵值（见 store/modules/ozonShop.ts 的 ALL_SHOPS）：撤掉 scopeShopId，
+  // 后端收到 null 就不按店铺过滤，所有店铺的数据都会返回。
+  if (scopeShopId && scopeShopId !== 'all') result.scopeShopId = scopeShopId;
   else delete result.scopeShopId;
   return result;
 }

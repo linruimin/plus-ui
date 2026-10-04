@@ -219,8 +219,9 @@ const visibleColumns=computed(()=>{const columns=selectedColumns(columnState.val
 const tableKey=computed(()=>JSON.stringify([columnState.value,activeColumns.value.map(f=>f.prop),groups.value,sorts.value]));
 const defaultSort=computed(()=>sorts.value.length?{prop:sorts.value[0].field,order:sorts.value[0].desc===false?'ascending' as const:'descending' as const}:{prop:'',order:null});
 const allFilterFields=computed(()=>config.columns.filter(field=>!removedFields.value.includes(field.prop)&&!field.attachment&&!field.multiple));
-const filterColumns=computed(()=>allFilterFields.value.filter(field=>!shopStore.selectedId||field.prop!=='shopId'));
-const filterCount=computed(()=>(query.conditions||[]).filter(condition=>!shopStore.selectedId||condition.field!=='shopId').length);
+/** 选了具体店铺时，店铺已由顶部全局选择器限定，筛选面板里就不再重复提供该列；选「全部」时恢复。 */
+const filterColumns=computed(()=>allFilterFields.value.filter(field=>!shopStore.scopedShopId||field.prop!=='shopId'));
+const filterCount=computed(()=>(query.conditions||[]).filter(condition=>!shopStore.scopedShopId||condition.field!=='shopId').length);
 const calculatedFields=computed(()=>config.columns.filter(f=>!removedFields.value.includes(f.prop)&&f.readonly));
 const sourceTables=Object.fromEntries(Object.entries(businessConfig).filter(([key])=>key!=='attachment'));
 const {height}=useWindowSize();const tableViewport=ref<HTMLElement>(),footerRef=ref<HTMLElement>();
@@ -412,7 +413,8 @@ async function openAdd(anchor?:{anchorId:string|number;placement:'above'|'below'
  pendingInsert.value=anchor??null;
  const draft:BusinessRow={id:NEW_ROW_KEY,__new:true,__key:NEW_ROW_KEY};
  for(const field of activeFields.value)draft[field.prop]=field.multiple?[]:(field.default??null);
- if(shopStore.selectedId&&activeFields.value.some(f=>f.prop==='shopId')){draft.shopId=String(shopStore.selectedId);draft.shopIdLabel=shopStore.selectedName;}
+ const scopedShopId=shopStore.scopedShopId;
+ if(scopedShopId&&activeFields.value.some(f=>f.prop==='shopId')){draft.shopId=scopedShopId;draft.shopIdLabel=shopStore.selectedName;}
  if(props.table==='attachment')draft.sourceTable='product';
  seedViewConditions(draft);
  drafts[NEW_ROW_KEY]=draft;
