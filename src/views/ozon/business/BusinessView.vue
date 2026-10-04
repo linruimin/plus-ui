@@ -196,8 +196,12 @@ function restoreView(snapshot:ViewSnapshot){
   Object.assign(query,{pageNum:1,pageSize:[10,20,50,100].includes(Number(q.pageSize))?Number(q.pageSize):100,
     orderByColumn:validColumns.has(q.orderByColumn||'')?q.orderByColumn:'id',isAsc:q.isAsc==='asc'?'asc':'desc',manualOrder:q.manualOrder===true,
     keyword:typeof q.keyword==='string'?q.keyword:'',filters:{},ends:{},equals:{},conditions:resolveConditions(q as Record<string,any>),conjunction:q.conjunction==='or'?'or':'and'});
-  groups.value=query.manualOrder?[]:cleanOrder(snapshot.groups,3);
-  sorts.value=query.manualOrder?[]:cleanOrder(snapshot.sorts??[{field:query.orderByColumn,desc:query.isAsc!=='asc'}],5);
+  // 分组/排序与手动顺序互斥（后端会拒绝同时传，见 OzonBusinessSupport），但冲突时宁可关掉手动顺序，
+  // 也不能把用户的分组/排序丢掉 —— 2026-10-05 修：原来这里在 manualOrder 为 true 时直接清空两者，
+  // 而「插入行」恰好会写下 manualOrder=true，结果视图的分组被永久抹掉（「跨境店」视图实测丢过）。
+  groups.value=cleanOrder(snapshot.groups,3);
+  sorts.value=cleanOrder(snapshot.sorts??[{field:query.orderByColumn,desc:query.isAsc!=='asc'}],5);
+  if(groups.value.length||sorts.value.length)query.manualOrder=false;
   columnState.value=normalizeColumns(snapshot.columns,allColumns.value);
   summaryState.value=cleanSummary(snapshot.summary);
 }
@@ -417,6 +421,15 @@ async function openAdd(anchor?:{anchorId:string|number;placement:'above'|'below'
  (tableViewport.value?.querySelector('.el-table__body-wrapper .el-scrollbar__wrap') as HTMLElement|null)?.scrollTo({top:0});
  (tableViewport.value?.querySelector('.business-new-row input') as HTMLInputElement|null)?.focus();
 }
+/** 插入行落位后的收尾。手动顺序与分组/字段排序互斥（后端会抛「手动顺序不能与分组或字段排序同时使用」），
+ *  但**绝不能顺手清空 groups/sorts** —— 它们会被 captureView 写进视图快照并持久化，等于悄悄改掉用户的视图配置
+ *  （2026-10-05 在「跨境店」视图上踩到：插入一次新增，该视图「按出货时间分组」就永久没了）。
+ *  所以只在视图本来就没有分组/排序时才切到手动顺序；有分组/排序时插入位置已经落库，
+ *  等用户取消分组（或切到无分组视图）时自然生效。 */
+function applyManualOrderAfterInsert(){
+ if(!groups.value.length&&!sorts.value.length){query.manualOrder=true;return;}
+ ElMessage.info('已保存；当前视图有分组或排序，插入的位置将在取消分组/排序后生效');
+}
 /** 新增行按各字段的必填与类型规则校验后提交，编号由后端最终生成。 */
 async function confirmNewRow(){
  const draft=drafts[NEW_ROW_KEY];
@@ -432,7 +445,7 @@ async function confirmNewRow(){
  let addedId:string|number|undefined;
  try{
   addedId=(await addBusiness(config.endpoint,payload)).data as string|number;
-  if(pendingInsert.value&&addedId){await placeBusinessRow(config.endpoint,addedId,pendingInsert.value.anchorId,pendingInsert.value.placement);query.manualOrder=true;groups.value=[];sorts.value=[];}
+  if(pendingInsert.value&&addedId){await placeBusinessRow(config.endpoint,addedId,pendingInsert.value.anchorId,pendingInsert.value.placement);applyManualOrderAfterInsert();}
   ElMessage.success('新增成功');delete drafts[NEW_ROW_KEY];pendingInsert.value=null;await getList();
  }catch{
   if(addedId){ElMessage.warning('记录已保存，但指定位置失败；请刷新后重试');delete drafts[NEW_ROW_KEY];pendingInsert.value=null;dialogOpen.value=false;await getList();}
@@ -514,7 +527,7 @@ onBeforeRouteLeave(async()=>{
 
 async function save(){if(!await formRef.value?.validate().catch(()=>false))return;const payload:BusinessRow={};for(const field of activeFields.value){const value=form.value[field.prop];payload[field.prop]=value===''?null:value;if(field.numeric&&!field.reference&&value!==null&&value!==undefined&&value!==''&&!/^-?\d+(\.\d+)?$/.test(String(value))){ElMessage.error(field.label+'必须是有效数值');return;}}
  if(form.value.id){payload.id=form.value.id;payload.revision=form.value.revision;}
- saving.value=true;let addedId:string|number|undefined;try{if(payload.id)await editBusiness(config.endpoint,payload);else{const result=await addBusiness(config.endpoint,payload);addedId=result.data as string|number;}if(pendingInsert.value&&addedId){await placeBusinessRow(config.endpoint,addedId,pendingInsert.value.anchorId,pendingInsert.value.placement);query.manualOrder=true;groups.value=[];sorts.value=[];}ElMessage.success('保存成功');pendingInsert.value=null;dialogOpen.value=false;await getList();}catch{if(addedId){ElMessage.warning('记录已保存，但指定位置失败；请刷新后重试');pendingInsert.value=null;dialogOpen.value=false;await getList();}else ElMessage.error('保存失败，请检查必填字段');}finally{saving.value=false;}}
+ saving.value=true;let addedId:string|number|undefined;try{if(payload.id)await editBusiness(config.endpoint,payload);else{const result=await addBusiness(config.endpoint,payload);addedId=result.data as string|number;}if(pendingInsert.value&&addedId){await placeBusinessRow(config.endpoint,addedId,pendingInsert.value.anchorId,pendingInsert.value.placement);applyManualOrderAfterInsert();}ElMessage.success('保存成功');pendingInsert.value=null;dialogOpen.value=false;await getList();}catch{if(addedId){ElMessage.warning('记录已保存，但指定位置失败；请刷新后重试');pendingInsert.value=null;dialogOpen.value=false;await getList();}else ElMessage.error('保存失败，请检查必填字段');}finally{saving.value=false;}}
 async function removeRow(row:BusinessRow){const current=await getBusiness(config.endpoint,row.id);try{await ElMessageBox.confirm('确认删除这条'+config.title+'记录？有关联记录时系统会阻止删除。','删除确认',{type:'warning',confirmButtonText:'删除',cancelButtonText:'取消'});}catch{return;}await deleteBusiness(config.endpoint,row.id,current.data.revision);delete drafts[row.id];ElMessage.success('删除成功');await getList();}
 watch(()=>shopStore.selectionKey,()=>{version++;rows.value=[];total.value=0;query.pageNum=1;void getList();});
 onMounted(()=>{updateTableHeight();bindHorizontalScroll();void getList();});let activated=false;onActivated(()=>{updateTableHeight();if(activated)void getList();activated=true;});
