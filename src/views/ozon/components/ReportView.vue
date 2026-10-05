@@ -100,6 +100,7 @@ import { useOzonShopStore } from '@/store/modules/ozonShop';
 import ViewSelector from './ViewSelector.vue';
 import ViewOrdering from './ViewOrdering.vue';
 import { readViewData, writeViewData, sameRows, sameJson } from './viewDataCache';
+import { nextPaint } from './nextPaint';
 import { useSavedViews, type ViewSnapshot, type SavedView, type ViewOrder } from './savedViews';
 import viewPresets from './viewPresets.json';
 import { readPreference, writePreference, normalizeColumns, selectedColumns, normalizeQuery, normalizeDates } from './preferences';
@@ -489,10 +490,17 @@ function applySavedView(snapshot: ViewSnapshot) {
 const viewDefaults = (viewPresets as Record<string, SavedView[]>)[kind.value];
 const hasLegacy = Object.keys(readPreference(preferenceKey.value)).length > 0;
 const viewManager = useSavedViews(basePreferenceKey + ':saved-views', viewDefaults, captureSavedView, applySavedView);
-function selectSavedView(id: string) {
-  viewManager.select(id);
-  // 先把上次这个视图的数据铺上（有就立即显示、无变化时连重渲染都省了），再后台刷新。
+let viewSwitchToken = 0;
+/** 切换视图（多维表格口径）：先只改「选中态」并等它上屏，再应用配置与数据 —— 见 BusinessView 同名注释。 */
+async function selectSavedView(id: string) {
+  if (!viewManager.activate(id)) return;
+  const token = ++viewSwitchToken;
   const cached = readViewData<ReportRow>(viewCacheKey(viewManager.activeId.value));
+  if (cached) refreshingView.value = true;
+  await nextPaint();
+  if (token !== viewSwitchToken) return;
+  viewManager.applyActive();
+  // 先把上次这个视图的数据铺上（有就立即显示、无变化时连重渲染都省了），再后台刷新。
   if (cached) { rows.value = cached.rows; total.value = cached.total; refreshingView.value = true; }
   else { rows.value = []; total.value = 0; refreshingView.value = false; }
   handleQuery(); nextTick(updateTableHeight);

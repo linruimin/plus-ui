@@ -70,23 +70,42 @@ export function useSavedViews(key: string, defaults: SavedView[], capture: () =>
   const activeId = ref(views.value.some(v => v.id === candidate) ? candidate! : views.value[0].id);
   const storageWarning = ref(false);
   let restoring = false;
+  /**
+   * 「表格里当前真正生效的是哪个视图的配置」—— 与 activeId（按钮选中态）分开记。
+   * 切开视图时 activeId 会先变（为了按钮立刻变色），配置要等下一帧才应用；
+   * 这中间的窗口里 `capture()` 拿到的仍是**上一个视图**的配置，
+   * 若按 activeId 存就会把它写到刚点选的那个视图名下 → 污染视图快照（连点两个视图时必现）。
+   */
+  let restoredId = activeId.value;
   const activeView = computed(() => views.value.find(v => v.id === activeId.value)!);
   function persist() {
     if (!writePreference(key, { activeId: activeId.value, custom: custom.value, snapshots: snapshots.value, hiddenDefaults: hiddenDefaults.value, defaultNames: defaultNames.value })) storageWarning.value = true;
   }
   function saveCurrent() {
     if (restoring) return;
-    snapshots.value[activeId.value] = clone(capture()); persist();
+    snapshots.value[restoredId] = clone(capture()); persist();
   }
   function restore() {
     restoring = true;
     try { apply(clone(isObject(snapshots.value[activeId.value]) ? snapshots.value[activeId.value] : activeView.value.snapshot)); }
-    finally { restoring = false; }
+    finally { restoring = false; restoredId = activeId.value; }
   }
-  function select(id: string) {
-    if (!views.value.some(v => v.id === id)) return;
-    saveCurrent(); activeId.value = id; restore(); persist();
+  /**
+   * 只切换「选中态」—— 不碰表格配置，所以这一帧极其便宜，浏览器能立刻把按钮颜色画出来。
+   * 与 applyActive() 拆开是为了「点一下马上有反馈」：否则 activeId 与 restore()（会改
+   * groups/columns/rows → 整表重渲染 200~500ms）挤在同一帧，按钮变色要等重渲染做完才上屏。
+   */
+  function activate(id: string) {
+    if (!views.value.some(v => v.id === id)) return false;
+    activeId.value = id;
+    return true;
   }
+  /**
+   * 把当前选中视图的配置应用到表格（会触发整表重渲染），调用方应排在下一帧（见 nextPaint）。
+   * 先把上一个视图的配置存回它自己名下（此刻 capture() 拿到的还是它的配置），再 restore()。
+   */
+  function applyActive() { saveCurrent(); restore(); persist(); }
+  function select(id: string) { if (activate(id)) applyActive(); }
   async function askName(title: string, initial = '') {
     try {
       const result = await ElMessageBox.prompt('名称最多 40 个字；视图保存到当前账号的本浏览器。', title, {
@@ -104,7 +123,7 @@ export function useSavedViews(key: string, defaults: SavedView[], capture: () =>
     const name = await askName('新增视图'); if (!name) return false;
     saveCurrent();
     const id = 'custom:' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 10);
-    custom.value.push({ id, name, snapshot: clone(capture()) }); activeId.value = id; saveCurrent(); return true;
+    custom.value.push({ id, name, snapshot: clone(capture()) }); activeId.value = id; restoredId = id; saveCurrent(); return true;
   }
   async function rename() {
     const view = activeView.value;
@@ -131,5 +150,5 @@ export function useSavedViews(key: string, defaults: SavedView[], capture: () =>
   restore();
   persist();
   watch(capture, saveCurrent, { deep: true, flush: 'sync' });
-  return { views, activeId, activeView, storageWarning, select, add, rename, remove, reset, saveCurrent };
+  return { views, activeId, activeView, storageWarning, select, activate, applyActive, add, rename, remove, reset, saveCurrent };
 }

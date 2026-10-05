@@ -127,6 +127,7 @@ import ViewSelector from '../components/ViewSelector.vue';
 import ViewOrdering from '../components/ViewOrdering.vue';
 import FilterBuilder from '../components/FilterBuilder.vue';
 import {readViewData,writeViewData,sameRows,sameJson} from '../components/viewDataCache';
+import {nextPaint} from '../components/nextPaint';
 import {useSavedViews,type ViewSnapshot,type ViewOrder,type SavedView} from '../components/savedViews';
 import viewPresets from '../components/viewPresets.json';
 const props=defineProps<{table:string}>();const config=businessConfig[props.table];
@@ -219,10 +220,19 @@ const refreshingView=ref(false);
 /** 视图数据缓存 key：同一张表 + 同一个视图 + 同一个店铺作用域才算同一份数据。
  *  「全部店铺」用 'all' 与具体店铺区分开，免得切换店铺时先闪一眼别家的记录。 */
 function viewCacheKey(viewId:string){const shop=shopStore.scopedShopId;return props.table+'|'+viewId+'|'+(shop===undefined||shop===null||shop===''?'all':String(shop));}
-/** 切换视图：先把上次这个视图的数据铺上（有就立即显示、无变化时连重渲染都省了），再后台刷新。 */
-function selectView(id:string){
- viewManager.select(id);
+/** 切换视图（多维表格口径）：**先把「选中态」画出来**，再应用配置、铺缓存数据、后台刷新。
+ *  ⚠️ 必须拆成两帧：applyActive() 会改 groups/columns/rows → 触发整表重渲染（实测 200~500ms），
+ *  若与 activeId 挤在同一帧，按钮颜色要等重渲染做完才上屏 —— 就是「点完等一会才变色」的割裂感。
+ *  小框（.view-refreshing）在工具条上、不触发表格渲染，所以能和按钮同帧上屏，顺便告诉用户在换。 */
+let viewSwitchToken=0;
+async function selectView(id:string){
+ if(!viewManager.activate(id))return;
+ const token=++viewSwitchToken;
  const cached=readViewData<BusinessRow>(viewCacheKey(viewManager.activeId.value));
+ if(cached)refreshingView.value=true;
+ await nextPaint();
+ if(token!==viewSwitchToken)return;// 这一帧里又切了别的视图 → 让后一次接手
+ viewManager.applyActive();
  if(cached){rows.value=cached.rows;total.value=cached.total;refreshingView.value=true;}
  else{rows.value=[];total.value=0;refreshingView.value=false;}
  search();
