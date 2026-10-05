@@ -7,6 +7,7 @@
             <el-tag v-if="kind === 'accruals' && shopStore.selectedName" type="primary" size="small">{{ shopStore.selectedName }}</el-tag>
             <ViewSelector v-if="!trendOnly" :model-value="viewManager.activeId.value" :views="viewManager.views.value" @select="selectSavedView" @action="savedViewAction" />
             <span v-if="accrualView !== 'chart'" class="record-count">共 {{ total.toLocaleString() }} 条</span>
+            <span v-if="refreshingView" class="view-refreshing" role="status"><i class="view-refreshing-dot"></i>数据更新中</span>
           </div>
           <div class="view-actions">
             <el-popover v-model:visible="filterOpen" trigger="click" placement="bottom-end" :width="panelWidth" :persistent="false">
@@ -49,7 +50,7 @@
       <el-alert v-if="storageWarning || viewManager.storageWarning.value" title="浏览器未允许保存设置，本次调整仍有效，但重新打开后可能无法恢复。" type="warning" :closable="false" />
       <SalesTrendChart v-if="kind === 'accruals' && accrualView === 'chart'" :query="trendQuery" :storage-key="basePreferenceKey + ':chart'" @detail="showDetail" />
       <div v-if="!trendOnly" ref="tableViewport" class="table-viewport" @click="onSummaryCellClick">
-      <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading" :data="displayRows" border stripe :show-summary="rows.length>0" :summary-method="summaryMethod" :height="tableHeight" :row-key="rowKey" :row-class-name="rowClass" :default-sort="defaultSort" :empty-text="error ? '查询失败，请重试' : '没有符合条件的记录'" @sort-change="sortChange">
+      <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading && !refreshingView" :data="displayRows" border stripe :show-summary="rows.length>0" :summary-method="summaryMethod" :height="tableHeight" :row-key="rowKey" :row-class-name="rowClass" :default-sort="defaultSort" :empty-text="error ? '查询失败，请重试' : '没有符合条件的记录'" @sort-change="sortChange">
         <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ rowNumbers.get(rowKey(row)) }}</span></template></el-table-column>
         <el-table-column v-for="column in tableColumns" :key="column.prop" :prop="column.prop" :label="column.label" :width="gridColumnWidth(column)" :fixed="column.fixed" :min-width="gridColumnWidth(column)" :sortable="column.attachment || column.prop === '__actions' ? false : 'custom'" :align="column.numeric ? 'right' : 'left'" show-overflow-tooltip>
           <template #default="{ row }"><span v-if="row.__group" class="group-cell" :title="row.__groupTitle||row.__group"><template v-if="column.prop===tableColumns[0]?.prop"><span class="group-name">{{ row.__groupName }}</span><span class="group-count">{{ row.__count }} 条</span></template><span v-if="row[column.prop]!==undefined" class="group-sum"><span class="sum-prefix">求和</span><span class="sum-value">{{ display(row[column.prop],column) }}</span></span></span><el-button v-else-if="column.prop === '__actions'" link type="primary" @click="showDetail(row)">详情</el-button><AttachmentImages v-else-if="column.attachment" :value="row[column.prop]"/><span v-else>{{ display(row[column.prop], column) }}</span></template>
@@ -98,6 +99,7 @@ import { useUserStore } from '@/store/modules/user';
 import { useOzonShopStore } from '@/store/modules/ozonShop';
 import ViewSelector from './ViewSelector.vue';
 import ViewOrdering from './ViewOrdering.vue';
+import { readViewData, writeViewData, sameRows } from './viewDataCache';
 import { useSavedViews, type ViewSnapshot, type SavedView, type ViewOrder } from './savedViews';
 import viewPresets from './viewPresets.json';
 import { readPreference, writePreference, normalizeColumns, selectedColumns, normalizeQuery, normalizeDates } from './preferences';
@@ -138,6 +140,21 @@ function restorePreferences() {
   columnState.value = normalizeColumns(saved.columns, allTableColumns.value);
 }
 function saveView() { viewManager.saveCurrent(); }
+/** 表里正显示的是缓存下来的旧数据、后台正在刷新（多维表格口径）。
+ *  true 时不盖 loading 遮罩，改为工具条上一个小框提示「数据更新中」。 */
+const refreshingView = ref(false);
+/** 视图数据缓存 key：同一个报表 + 同一个视图 + 同一个店铺作用域才算同一份数据。 */
+function viewCacheKey(viewId: string) {
+  const shop = kind.value === 'accruals' ? shopStore.selectedId : '';
+  return 'report|' + (props.preferenceKey || (props.trendOnly ? 'trend' : props.kind)) + '|' + viewId + '|' + (shop || 'all');
+}
+/** 首次进入页面时也用上缓存：命中就先渲染，随后 getList 在后台校正。 */
+function seedFromViewCache() {
+  const cached = readViewData<ReportRow>(viewCacheKey(viewManager.activeId.value));
+  if (!cached) return false;
+  rows.value = cached.rows; total.value = cached.total; refreshingView.value = true;
+  return true;
+}
 const filterOpen = ref(false);
 const tableViewport = ref<HTMLElement>();
 const horizontalTrack=ref<HTMLElement>(),scrollContentWidth=ref(0),hasHorizontalScroll=ref(false);
@@ -355,6 +372,7 @@ async function getList() {
   saveView();
   const version = ++requestVersion;
   setLoading(true); error.value = '';
+  const cacheKey = viewCacheKey(viewManager.activeId.value), cacheable = query.pageNum === 1;
   try {
     // 订单费用明细跟随全局所选店铺；其余报表不含店铺维度。
     const params = scopeReportQuery(
@@ -367,11 +385,17 @@ async function getList() {
     }
     const result = await listReport(kind.value, params);
     if (version !== requestVersion) return;
-    rows.value = result.data?.rows ?? []; total.value = result.data?.total ?? 0;
+    const pageRows = result.data?.rows ?? [], nextTotal = result.data?.total ?? 0;
+    // 后台刷新回来的数据与缓存一致时复用原数组：el-table 不重建 DOM，省掉整表重渲染。
+    const cached = cacheable ? readViewData<ReportRow>(cacheKey) : undefined;
+    const keep = cached && cached.total === nextTotal && sameRows(cached.rows, pageRows) ? cached.rows : pageRows;
+    rows.value = keep; total.value = nextTotal;
+    if (cacheable) writeViewData(cacheKey, { rows: keep, total: nextTotal });
   } catch {
     if (version !== requestVersion) return;
-    rows.value = []; total.value = 0; error.value = '查询失败，请检查筛选条件后重试。';
-  } finally { if (version === requestVersion) { setLoading(false); nextTick(updateTableHeight); } }
+    if (!refreshingView.value) { rows.value = []; total.value = 0; }
+    error.value = '查询失败，请检查筛选条件后重试。';
+  } finally { if (version === requestVersion) { setLoading(false); refreshingView.value = false; nextTick(updateTableHeight); } }
 }
 function handleQuery() { query.pageNum = 1; getList(); }
 function resetQuery() {
@@ -425,6 +449,7 @@ restorePreferences();
 watch(() => shopStore.selectionKey, () => {
   if (kind.value !== 'accruals') return;
   requestVersion++;
+  refreshingView.value = false;
   rows.value = []; total.value = 0; query.pageNum = 1;
   getList();
 });
@@ -447,7 +472,14 @@ function applySavedView(snapshot: ViewSnapshot) {
 const viewDefaults = (viewPresets as Record<string, SavedView[]>)[kind.value];
 const hasLegacy = Object.keys(readPreference(preferenceKey.value)).length > 0;
 const viewManager = useSavedViews(basePreferenceKey + ':saved-views', viewDefaults, captureSavedView, applySavedView);
-function selectSavedView(id: string) { viewManager.select(id); handleQuery(); nextTick(updateTableHeight); }
+function selectSavedView(id: string) {
+  viewManager.select(id);
+  // 先把上次这个视图的数据铺上（有就立即显示、无变化时连重渲染都省了），再后台刷新。
+  const cached = readViewData<ReportRow>(viewCacheKey(viewManager.activeId.value));
+  if (cached) { rows.value = cached.rows; total.value = cached.total; refreshingView.value = true; }
+  else { rows.value = []; total.value = 0; refreshingView.value = false; }
+  handleQuery(); nextTick(updateTableHeight);
+}
 async function savedViewAction(action: 'add' | 'rename' | 'remove' | 'reset') { if (await viewManager[action]()) { handleQuery(); nextTick(updateTableHeight); } }
 trendQuery.value = { ...query, startDate: dateRange.value?.[0], endDate: dateRange.value?.[1] };
 onMounted(async () => {
@@ -459,6 +491,7 @@ onMounted(async () => {
   window.addEventListener('resize', updateTableHeight);
   updateTableHeight();
   bindHorizontalScroll();
+  seedFromViewCache();
   getList();
 });
 onActivated(() => { nextTick(updateTableHeight); });
@@ -473,6 +506,11 @@ onBeforeUnmount(() => {
 <style scoped>
 /* 分组和本页合计保留各列，数值对齐到原列。 */
 .group-cell { display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap; }.group-name { font-size: 14px; font-weight: 600; color: var(--el-text-color-primary); }.group-count { font-size: 12px; font-weight: 400; color: var(--el-text-color-secondary); }.group-sum { display: inline-flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }.sum-prefix { font-size: 12px; font-weight: 400; color: var(--el-text-color-secondary); }.sum-value { font-size: 13px; font-weight: 400; color: var(--el-text-color-primary); }
+
+/* 切视图时表里已是缓存旧数据，工具条上给个小框提示后台在刷新（多维表格口径）。 */
+.view-refreshing { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 20px; padding: 0 8px; border: 1px solid var(--el-border-color-lighter); border-radius: 4px; background: var(--el-bg-color-overlay); color: var(--el-text-color-secondary); font-size: 12px; line-height: 1; white-space: nowrap; }
+.view-refreshing-dot { display: inline-block; width: 9px; height: 9px; border: 1.5px solid var(--el-color-primary); border-top-color: transparent; border-radius: 50%; animation: view-refreshing-spin .7s linear infinite; }
+@keyframes view-refreshing-spin { to { transform: rotate(360deg); } }
 
 /* 「本页合计」行的弹层：点格子选「不展示 / 求和」。 */
 .grid-context-menu { position: fixed; z-index: 3000; min-width: 170px; padding: 4px; background: var(--el-bg-color-overlay); border: 1px solid var(--el-border-color-light); border-radius: 6px; box-shadow: var(--el-box-shadow-light); }
