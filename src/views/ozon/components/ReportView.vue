@@ -99,7 +99,7 @@ import { useUserStore } from '@/store/modules/user';
 import { useOzonShopStore } from '@/store/modules/ozonShop';
 import ViewSelector from './ViewSelector.vue';
 import ViewOrdering from './ViewOrdering.vue';
-import { readViewData, writeViewData, sameRows } from './viewDataCache';
+import { readViewData, writeViewData, sameRows, sameJson } from './viewDataCache';
 import { useSavedViews, type ViewSnapshot, type SavedView, type ViewOrder } from './savedViews';
 import viewPresets from './viewPresets.json';
 import { readPreference, writePreference, normalizeColumns, selectedColumns, normalizeQuery, normalizeDates } from './preferences';
@@ -364,9 +364,17 @@ function display(value: ReportRow[string], column: ReportColumn) {
   if (column.numeric || column.decimal) return formatNumericColumn(value, column);
   return String(value);
 }
+/** 默认排序（纯函数版）：applySavedView 要先把新 query 算在普通对象里再和旧的比，不能直接写 query。 */
+function defaultSortOf(groupBy?: string) {
+  return {
+    orderByColumn: kind.value === 'monthly' ? (groupBy === 'sku' ? 'reportMonth' : 'finalTakeHomeRub') : (kind.value === 'accruals' ? 'accrualDate' : kind.value === 'returns-report' ? 'returnQty' : 'completionDate'),
+    isAsc: 'desc'
+  };
+}
 function setDefaultSort() {
-  query.orderByColumn = kind.value === 'monthly' ? (query.groupBy === 'sku' ? 'reportMonth' : 'finalTakeHomeRub') : (kind.value === 'accruals' ? 'accrualDate' : kind.value === 'returns-report' ? 'returnQty' : 'completionDate');
-  query.isAsc = 'desc';
+  const next = defaultSortOf(query.groupBy);
+  query.orderByColumn = next.orderByColumn;
+  query.isAsc = next.isAsc;
 }
 async function getList() {
   saveView();
@@ -456,18 +464,27 @@ watch(() => shopStore.selectionKey, () => {
 function captureSavedView(): ViewSnapshot { return { query: { ...query, pageNum: 1 }, columns: columnState.value, dateRange: dateRange.value ?? [], summary: { ...summaryState.value } }; }
 function applySavedView(snapshot: ViewSnapshot) {
   const saved = snapshot.query || {};
-  for (const key of Object.keys(query)) Reflect.deleteProperty(query, key);
-  Object.assign(query, { pageNum: 1, pageSize: 100,
+  // 先把新 query 算在一个普通对象里，最后整体比一次；内容没变就不碰 query。
+  // ⚠️ 一旦碰到 query / columnState，displayRows 与 tableColumns 就会重算 → el-table 整表重渲染
+  // （报表页实测 500ms+，见 skill §15）。
+  const next: Record<string, any> = { pageNum: 1, pageSize: 100,
     groupBy: ['month', 'sku', 'none'].includes(saved.groupBy) ? saved.groupBy : (kind.value === 'monthly' || kind.value === 'returns-report' ? 'month' : 'none'),
     groupDesc: saved.groupDesc === true,
-    ...(kind.value === 'supply' ? { status: '已完成' } : {}) });
-  setDefaultSort();
-  Object.assign(query, normalizeQuery(saved, columns.value, { ...query }));
+    ...(kind.value === 'supply' ? { status: '已完成' } : {}) };
+  Object.assign(next, defaultSortOf(next.groupBy));
+  Object.assign(next, normalizeQuery(saved, columns.value, { ...next }));
   // 默认主键排序也由后端白名单支持，但不作为数据列展示。
-  if (saved.orderByColumn === 'rowId' || saved.orderByColumn === 'id') query.orderByColumn = saved.orderByColumn;
-  dateRange.value = normalizeDates(snapshot.dateRange);
-  columnState.value = normalizeColumns(snapshot.columns, allTableColumns.value);
-  summaryState.value = cleanSummary(snapshot.summary);
+  if (saved.orderByColumn === 'rowId' || saved.orderByColumn === 'id') next.orderByColumn = saved.orderByColumn;
+  if (!sameJson({ ...query }, next)) {
+    for (const key of Object.keys(query)) Reflect.deleteProperty(query, key);
+    Object.assign(query, next);
+  }
+  const nextDates = normalizeDates(snapshot.dateRange);
+  if (!sameJson(nextDates, dateRange.value)) dateRange.value = nextDates;
+  const nextColumnState = normalizeColumns(snapshot.columns, allTableColumns.value);
+  if (!sameJson(nextColumnState, columnState.value)) columnState.value = nextColumnState;
+  const nextSummaryState = cleanSummary(snapshot.summary);
+  if (!sameJson(nextSummaryState, summaryState.value)) summaryState.value = nextSummaryState;
 }
 const viewDefaults = (viewPresets as Record<string, SavedView[]>)[kind.value];
 const hasLegacy = Object.keys(readPreference(preferenceKey.value)).length > 0;

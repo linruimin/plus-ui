@@ -126,7 +126,7 @@ import ReferenceDialog from './ReferenceDialog.vue';
 import ViewSelector from '../components/ViewSelector.vue';
 import ViewOrdering from '../components/ViewOrdering.vue';
 import FilterBuilder from '../components/FilterBuilder.vue';
-import {readViewData,writeViewData,sameRows} from '../components/viewDataCache';
+import {readViewData,writeViewData,sameRows,sameJson} from '../components/viewDataCache';
 import {useSavedViews,type ViewSnapshot,type ViewOrder,type SavedView} from '../components/savedViews';
 import viewPresets from '../components/viewPresets.json';
 const props=defineProps<{table:string}>();const config=businessConfig[props.table];
@@ -200,11 +200,16 @@ function restoreView(snapshot:ViewSnapshot){
   // 分组/排序与手动顺序互斥（后端会拒绝同时传，见 OzonBusinessSupport），但冲突时宁可关掉手动顺序，
   // 也不能把用户的分组/排序丢掉 —— 2026-10-05 修：原来这里在 manualOrder 为 true 时直接清空两者，
   // 而「插入行」恰好会写下 manualOrder=true，结果视图的分组被永久抹掉（「跨境店」视图实测丢过）。
-  groups.value=cleanOrder(snapshot.groups,3);
-  sorts.value=cleanOrder(snapshot.sorts??[{field:query.orderByColumn,desc:query.isAsc!=='asc'}],5);
+  // 内容没变就别换引用：这些状态一旦换成新对象，displayRows/visibleColumns 会重算 → 整表重渲染。
+  const nextGroups=cleanOrder(snapshot.groups,3);
+  if(!sameJson(nextGroups,groups.value))groups.value=nextGroups;
+  const nextSorts=cleanOrder(snapshot.sorts??[{field:query.orderByColumn,desc:query.isAsc!=='asc'}],5);
+  if(!sameJson(nextSorts,sorts.value))sorts.value=nextSorts;
   if(groups.value.length||sorts.value.length)query.manualOrder=false;
-  columnState.value=normalizeColumns(snapshot.columns,allColumns.value);
-  summaryState.value=cleanSummary(snapshot.summary);
+  const nextColumnState=normalizeColumns(snapshot.columns,allColumns.value);
+  if(!sameJson(nextColumnState,columnState.value))columnState.value=nextColumnState;
+  const nextSummaryState=cleanSummary(snapshot.summary);
+  if(!sameJson(nextSummaryState,summaryState.value))summaryState.value=nextSummaryState;
 }
 const defaults=(viewPresets as Record<string,SavedView[]>)[props.table];
 const viewManager=useSavedViews(storageKey+':saved-views',defaults,captureView,restoreView);
@@ -288,7 +293,12 @@ function updateTableHeight(){void nextTick(()=>{
 watch(height,updateTableHeight);
 
 const rows=ref<BusinessRow[]>([]),total=ref(0),loading=ref(false),error=ref('');let version=0;
-async function getList(){persist();const current=++version;loading.value=true;error.value='';const cacheKey=viewCacheKey(viewManager.activeId.value),cacheable=query.pageNum===1;try{const custom=await listBusinessCustomFields(config.endpoint);if(current!==version)return;customFields.value=custom.data||[];if(!customColumnsLoaded){customColumnsLoaded=true;columnState.value=normalizeColumns(columnState.value,allColumns.value);}const removed=await listRemovedBusinessFields(config.endpoint);if(current!==version)return;removedFields.value=removed.data||[];for(const key of Object.keys(query.filters||{}))if(removedFields.value.includes(key))delete query.filters![key];for(const key of Object.keys(query.ends||{}))if(removedFields.value.includes(key))delete query.ends![key];for(const key of Object.keys(query.equals||{}))if(removedFields.value.includes(key))delete query.equals![key];query.conditions=cleanConditions((query.conditions||[]).filter(condition=>!removedFields.value.includes(condition.field)));groups.value=groups.value.filter(g=>!removedFields.value.includes(g.field));sorts.value=sorts.value.filter(g=>!removedFields.value.includes(g.field));if(removedFields.value.includes(query.orderByColumn||''))query.orderByColumn='id';const shopId=await shopStore.ensureLoaded();if(current!==version)return;const r=await listBusiness(config.endpoint,scopeBusinessQuery({...query,groupFields:groups.value.map(v=>v.field+':'+(v.desc?'desc':'asc')).join(','),sortFields:sorts.value.map(v=>v.field+':'+(v.desc?'desc':'asc')).join(',')},shopId));if(current===version){const pageRows=r.data?.rows||[];if(customFields.value.length&&pageRows.length){const values=await listBusinessCustomValues(config.endpoint,pageRows.map((row:BusinessRow)=>String(row.id)));if(current!==version)return;for(const value of values.data||[]){const row=pageRows.find((item:BusinessRow)=>String(item.id)===String(value.rowId));if(row)row['custom_'+value.fieldId]=value.value;}}const nextTotal=r.data?.total||0;// 后台刷新回来的数据与缓存一致时复用原数组：el-table 不重建 DOM，省掉整表重渲染
+/** 只有内容真的变了才写回响应式状态。
+ *  ⚠️ 这些数组挂着 `allColumns/activeColumns/visibleColumns` 与 `displayRows`，
+ *  每次取数都塞一个「内容相同的新数组」→ 下游 computed 全重算 + el-table 整表重渲染
+ *  （实测 ≈0.5ms/单元格，91 行 × 31 列要 1.3 秒）。保持旧引用才是关键。 */
+function assignIfChanged<T>(target:{value:T},next:T){if(!sameJson(target.value,next))target.value=next;}
+async function getList(){persist();const current=++version;loading.value=true;error.value='';const cacheKey=viewCacheKey(viewManager.activeId.value),cacheable=query.pageNum===1;try{const custom=await listBusinessCustomFields(config.endpoint);if(current!==version)return;assignIfChanged(customFields,custom.data||[]);if(!customColumnsLoaded){customColumnsLoaded=true;columnState.value=normalizeColumns(columnState.value,allColumns.value);}const removed=await listRemovedBusinessFields(config.endpoint);if(current!==version)return;assignIfChanged(removedFields,removed.data||[]);for(const key of Object.keys(query.filters||{}))if(removedFields.value.includes(key))delete query.filters![key];for(const key of Object.keys(query.ends||{}))if(removedFields.value.includes(key))delete query.ends![key];for(const key of Object.keys(query.equals||{}))if(removedFields.value.includes(key))delete query.equals![key];const nextConditions=cleanConditions((query.conditions||[]).filter(condition=>!removedFields.value.includes(condition.field)));if(!sameJson(nextConditions,query.conditions))query.conditions=nextConditions;const nextGroups=groups.value.filter(g=>!removedFields.value.includes(g.field));if(nextGroups.length!==groups.value.length)groups.value=nextGroups;const nextSorts=sorts.value.filter(g=>!removedFields.value.includes(g.field));if(nextSorts.length!==sorts.value.length)sorts.value=nextSorts;if(removedFields.value.includes(query.orderByColumn||''))query.orderByColumn='id';const shopId=await shopStore.ensureLoaded();if(current!==version)return;const r=await listBusiness(config.endpoint,scopeBusinessQuery({...query,groupFields:groups.value.map(v=>v.field+':'+(v.desc?'desc':'asc')).join(','),sortFields:sorts.value.map(v=>v.field+':'+(v.desc?'desc':'asc')).join(',')},shopId));if(current===version){const pageRows=r.data?.rows||[];if(customFields.value.length&&pageRows.length){const values=await listBusinessCustomValues(config.endpoint,pageRows.map((row:BusinessRow)=>String(row.id)));if(current!==version)return;for(const value of values.data||[]){const row=pageRows.find((item:BusinessRow)=>String(item.id)===String(value.rowId));if(row)row['custom_'+value.fieldId]=value.value;}}const nextTotal=r.data?.total||0;// 后台刷新回来的数据与缓存一致时复用原数组：el-table 不重建 DOM，省掉整表重渲染
 const cached=cacheable?readViewData<BusinessRow>(cacheKey):undefined;const keep=cached&&cached.total===nextTotal&&sameRows(cached.rows,pageRows)?cached.rows:pageRows;rows.value=keep;total.value=nextTotal;if(cacheable)writeViewData(cacheKey,{rows:keep,total:nextTotal});}}catch(cause){if(current===version){if(!refreshingView.value){rows.value=[];total.value=0;}error.value=shopStore.error||'查询失败，请检查筛选条件后重试';}}finally{if(current===version){loading.value=false;refreshingView.value=false;updateTableHeight();}}}
 function search(){query.pageNum=1;void getList();}
 function resetFilters(){query.keyword='';query.filters={};query.ends={};query.equals={};query.conditions=[];query.conjunction='and';search();}

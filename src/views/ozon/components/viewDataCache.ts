@@ -66,3 +66,16 @@ export function sameRows(a: readonly unknown[], b: readonly unknown[]): boolean 
   }
   return true;
 }
+
+/**
+ * 内容比较：给「每次取数都会拿到的新数组/新对象」用 —— 内容没变就别塞进响应式状态。
+ *
+ * ⚠️ 这个看起来多余的判断其实很值钱：表格的 `displayRows` / `visibleColumns` 都挂在
+ * `rows` / `groups` / `customFields` / `removedFields` 上，只要换成一个「内容相同的新数组」，
+ * 下游 computed 就会全部重算并且 el-table 会整表重渲染（实测 ≈0.5ms/单元格，
+ * 91 行 × 31 列要 1.3 秒）。保持旧引用 = 整表零重渲染。
+ */
+export function sameJson(a: unknown, b: unknown): boolean {
+  return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
