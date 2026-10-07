@@ -16,7 +16,7 @@
    <el-alert v-if="storageWarning || viewManager.storageWarning.value" title="当前浏览器无法保存视图设置" type="warning" :closable="false"/>
    <el-alert v-if="error" :title="error" type="error" :closable="false"/>
    <div ref="tableViewport" class="table-viewport" @click="onSummaryCellClick">
-   <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading&&!refreshingView&&rows.length>0" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':row.__new?'business-new-row':''" :height="tableHeight" :default-sort="defaultSort" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
+   <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading&&!refreshingView&&rows.length>0" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':row.__new?'business-new-row':''" :height="tableHeight" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
     <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ row.__new?'＋':(rowNumbers.get(String(row.id))??'') }}</span></template></el-table-column>
     <el-table-column v-for="field in visibleColumns" :key="field.prop" :prop="field.prop" :width="gridColumnWidth(field)" :fixed="field.fixed" :align="field.numeric&&!field.reference?'right':'left'" show-overflow-tooltip>
      <template #header><el-popover trigger="click" placement="bottom-start" :width="248" :show-after="0" :disabled="formatKindOf(field)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(field)!=='text'}" :title="formatKindOf(field)==='text'?'':'点击设置显示格式'"><span v-if="field.reference" class="field-type-icon" title="引用字段" aria-label="引用字段">↗</span><span v-else-if="field.readonly" class="field-type-icon field-type-formula" title="计算字段" aria-label="计算字段">ƒx</span><span v-else-if="field.customId" class="field-type-icon" :title="field.numeric?'数字字段':'文本字段'">{{ field.numeric?'#':'T' }}</span><span>{{ field.label }}</span><i v-if="field.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="field" :model-value="columnFormats[field.prop]" @update:model-value="applyColumnFormat($event,field)"/></el-popover></template>
@@ -278,7 +278,11 @@ const visibleColumns=computed(()=>{const columns=selectedColumns(columnState.val
  *  ⚠️ 不要把 draftCount 放进来——草稿行出现会重建整个 el-table，把正在上传的单元格组件卸载，
  *  Vue 会丢弃已卸载实例的 emit（丢图），并且表格滚动位置会被重置到顶部。操作列由 visibleColumns 动态增删。 */
 const tableKey=computed(()=>JSON.stringify([columnState.value.order,columnState.value.hidden,columnState.value.fixed,columnFormats.value,activeColumns.value.map(f=>f.prop),groups.value,sorts.value]));
-const defaultSort=computed(()=>sorts.value.length?{prop:sorts.value[0].field,order:sorts.value[0].desc===false?'ascending' as const:'descending' as const}:{prop:'',order:null});
+// ⚠️ 不要再给 el-table 传 `default-sort`：表头已无 sortable（点击表头改为设显示格式），
+// 而 el-table 只在「列有 sortable 且是字符串」时才跳过本地排序 —— 没有 sortable 时它会拿
+// default-sort 的 prop 直接对 `displayRows` 做一次本地 orderBy，把我们手工插进数组的
+// 分组标题行（没有该字段）与明细行彻底打乱：组标题挤在一起、明细行按字段重排到别处。
+// 排序一律走后端（工具条「分组 / 排序」→ sorts → getList），别让表格自己排。
 const allFilterFields=computed(()=>config.columns.filter(field=>!removedFields.value.includes(field.prop)&&!field.attachment&&!field.multiple));
 /** 选了具体店铺时，店铺已由顶部全局选择器限定，筛选面板里就不再重复提供该列；选「全部」时恢复。 */
 const filterColumns=computed(()=>allFilterFields.value.filter(field=>!shopStore.scopedShopId||field.prop!=='shopId'));
@@ -385,11 +389,15 @@ const displayRows=computed<BusinessRow[]>(()=>{
       changed=changed||values[level]!==previous[level];
       if(!changed)return;
       const field=config.columns.find(f=>f.prop===group.field)!;
+      // 分组标题要跟数据行一样走列格式（日期列设了「只显示年月日」，标题里也不能带时分秒）。
+      // ⚠️ 必须用带 format 的字段对象：`config.columns` 是原始列定义，format 只挂在
+      // selectedColumns 产出的列上（columnFormats 里那份才是用户设的）。
+      const labelField={...field,format:columnFormats.value[group.field]};
       let end=index+1;
       while(end<rows.value.length&&groupValues(rows.value[end]).slice(0,level+1).every((value,i)=>value===values[i]))end++;
       const count=end-index;
-      const label=display(row,field)+' · '+count+'条';
-      result.push({...sumRowValues(rows.value.slice(index,end),summableColumns.value),__key:'group:'+index+':'+level,__group:label,__groupName:display(row,field),__count:count,__groupTitle:field.label+'：'+label,__level:level});
+      const label=display(row,labelField)+' · '+count+'条';
+      result.push({...sumRowValues(rows.value.slice(index,end),summableColumns.value),__key:'group:'+index+':'+level,__group:label,__groupName:display(row,labelField),__count:count,__groupTitle:field.label+'：'+label,__level:level});
     });
     result.push(row);previous=values;
   });

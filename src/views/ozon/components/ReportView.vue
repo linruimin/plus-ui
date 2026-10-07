@@ -50,7 +50,7 @@
       <el-alert v-if="storageWarning || viewManager.storageWarning.value" title="浏览器未允许保存设置，本次调整仍有效，但重新打开后可能无法恢复。" type="warning" :closable="false" />
       <SalesTrendChart v-if="kind === 'accruals' && accrualView === 'chart'" :query="trendQuery" :storage-key="basePreferenceKey + ':chart'" @detail="showDetail" />
       <div v-if="!trendOnly" ref="tableViewport" class="table-viewport" @click="onSummaryCellClick">
-      <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading && !refreshingView && rows.length > 0" :data="displayRows" border stripe :show-summary="rows.length>0" :summary-method="summaryMethod" :height="tableHeight" :row-key="rowKey" :row-class-name="rowClass" :default-sort="defaultSort" :empty-text="error ? '查询失败，请重试' : '没有符合条件的记录'" @sort-change="sortChange">
+      <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading && !refreshingView && rows.length > 0" :data="displayRows" border stripe :show-summary="rows.length>0" :summary-method="summaryMethod" :height="tableHeight" :row-key="rowKey" :row-class-name="rowClass" :empty-text="error ? '查询失败，请重试' : '没有符合条件的记录'" @sort-change="sortChange">
         <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ rowNumbers.get(rowKey(row)) }}</span></template></el-table-column>
         <el-table-column v-for="column in tableColumns" :key="column.prop" :prop="column.prop" :label="column.label" :width="gridColumnWidth(column)" :fixed="column.fixed" :min-width="gridColumnWidth(column)" :align="column.numeric ? 'right' : 'left'" show-overflow-tooltip>
           <template #header><el-popover trigger="click" placement="bottom-start" :width="248" :show-after="0" :disabled="formatKindOf(column)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(column)!=='text'}" :title="formatKindOf(column)==='text'?'':'点击设置显示格式'"><span>{{ column.label }}</span><i v-if="column.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="column" :model-value="columnFormats[column.prop]" @update:model-value="applyColumnFormat($event,column)"/></el-popover></template>
@@ -293,7 +293,11 @@ const orderSorts = computed<ViewOrder[]>({
   set(list) { const first = (Array.isArray(list) ? list : [])[0]; if (!first) return; query.orderByColumn = first.field; query.isAsc = first.desc ? 'desc' : 'asc'; }
 });
 function handleOrderChange() { query.pageNum = 1; getList(); }
-const defaultSort = computed(() => ({ prop: query.orderByColumn, order: query.isAsc === 'asc' ? 'ascending' as const : 'descending' as const }));
+// ⚠️ 主表不要再传 `default-sort`：表头已无 sortable（点击表头改为设显示格式），而 el-table
+// 只在「列有 sortable 且是字符串」时才跳过本地排序 —— 没有 sortable 时它会拿 default-sort 的 prop
+// 直接对 `displayRows` 做一次本地 orderBy，把手工插入的分组标题行与明细行打乱（组标题挤在一起、
+// 明细行按字段重排到别处）。排序一律走后端（工具条「分组 / 排序」）。
+// 下面的明细弹窗表格自己排是安全的：它的列带 `sortable="custom"`（字符串）→ el-table 不会本地排序。
 // ⚠️ 这里必须把 formats 放进 key：el-table 对「列 props 更新」不总会重渲染单元格，
 // 报表页实测「设了格式当前页不生效、刷新后才生效」。列格式现在按菜单共享（不在 columnState 里），
 // 所以除了整个 columnState 还要带上 columnFormats。
