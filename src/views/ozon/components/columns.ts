@@ -1,5 +1,6 @@
 /**
- * 列显示格式：用户在表头面板里设置，随视图一起保存（存进 ColumnPreference.formats）。
+ * 列显示格式：用户在表头面板里设置，**按菜单（同一张表）共享** —— 存 `columnFormats.ts`，
+ * 该菜单下的所有视图都生效（对齐飞书多维表格：显示格式属于字段本身，不跟着视图走）。
  * 只覆盖「显示」，不改数据本身，也不影响筛选/排序/汇总。
  */
 export interface ColumnFormat {
@@ -22,12 +23,24 @@ export interface ReportColumn {
 }
 
 /**
+ * 编号类字段：记录 ID / 出货编号 / 产品编号 / SKU / ItemCode …。
+ * 这些列在配置里带 `numeric` 标记（后端按整数存），但**显示时永远原样输出**，不参与数字格式化
+ * —— 否则 `20260519006` 会变成 `20,260,519,006`。
+ */
+export function isCodeColumn(column: ReportColumn): boolean {
+  return /^(id|.*Id|.*No)$|code|sku/i.test(column.prop) || /编号|编码/.test(column.label);
+}
+
+/**
  * 这一列能设置哪种格式 —— 决定表头面板给出哪些选项。
  * ⚠️ 这里只是**入口的启发式**：日期判定靠字段名/中文名（业务表 config 里没有统一的 date 标记，
  * 而报表页只有 prop/label）。判错的代价很小：真设了格式后 formatDateColumn 解析不出来会原样返回。
+ * ⚠️ 但编号类**必须**在 numeric 之前拦掉：它带 numeric 标记却永远走「原样输出」分支，
+ * 给出数字精度选项会「选了完全没反应」（出货「产品编号」列实测，2026-10-08）。
  */
 export function columnFormatKind(column: ReportColumn): 'date' | 'number' | 'text' {
   if (column.attachment || column.prop.startsWith('__')) return 'text';
+  if (isCodeColumn(column)) return 'text';
   if (column.numeric && !column.reference) return 'number';
   if (/at$|date$|time$|month$/i.test(column.prop) || /日期|时间|月份/.test(column.label)) return 'date';
   return 'text';
@@ -70,7 +83,7 @@ function numericFormatter(digits: number): Intl.NumberFormat {
 
 /** 数字列按字段含义显示精度，分组小计与数据行共用。 */
 export function formatNumericColumn(value: unknown, column: ReportColumn): string {
-  if (/^(id|.*Id|.*No)$|code|sku/i.test(column.prop) || /编号|编码/.test(column.label)) return String(value);
+  if (isCodeColumn(column)) return String(value);
   const number = Number(value);
   if (!Number.isFinite(number)) return String(value);
   const label = column.label;

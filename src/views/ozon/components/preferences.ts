@@ -5,7 +5,10 @@ export interface ColumnPreference {
   order: string[];
   hidden: string[];
   fixed?: Record<string, 'left' | 'right'>;
-  /** 表头格式面板里设置过的列显示格式（列 prop → 格式），随视图一起保存。 */
+  /**
+   * ⚠️ 历史遗留字段：列格式已改为**按菜单共享**（见 columnFormats.ts），不再跟着视图保存。
+   * 这里仍保留解析，用于把老快照里已有的格式迁移到菜单级存储，以及迁移失败时兜底显示。
+   */
   formats?: Record<string, ColumnFormat>;
 }
 
@@ -18,6 +21,15 @@ export function readPreference(key: string): Record<string, unknown> {
 }
 export function writePreference(key: string, value: unknown): boolean {
   try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { return false; }
+}
+/**
+ * 剥掉视图快照里的列格式：格式已改为「按菜单共享」（columnFormats.ts），视图快照里遗留的 formats
+ * 若不剥掉，用户「恢复默认格式」后会被老快照再顶回来。capture / restore 两头都用它。
+ */
+export function stripColumnFormats<T>(columns: T): T {
+  return columns && typeof columns === 'object' && !Array.isArray(columns)
+    ? { ...(columns as Record<string, unknown>), formats: undefined } as T
+    : columns;
 }
 export function normalizeColumns(value: unknown, columns: ReportColumn[]): ColumnPreference {
   const saved = value && typeof value === 'object' ? value as Partial<ColumnPreference> : {};
@@ -64,14 +76,15 @@ export function normalizeColumns(value: unknown, columns: ReportColumn[]): Colum
   }
   return { order, hidden, fixed, formats };
 }
-export function selectedColumns(value: ColumnPreference, columns: ReportColumn[]): ReportColumn[] {
+export function selectedColumns(value: ColumnPreference, columns: ReportColumn[], sharedFormats?: Record<string, ColumnFormat>): ReportColumn[] {
   const safe = normalizeColumns(value, columns);
   const rank = (key: string) => key === '__actions' ? 3 : safe.fixed?.[key] === 'left' ? 0 : safe.fixed?.[key] === 'right' ? 2 : 1;
   return safe.order.filter(key => !safe.hidden.includes(key)).sort((a, b) => rank(a) - rank(b))
     .map(key => {
       const column = { ...columns.find(item => item.prop === key)!, fixed: safe.fixed?.[key] };
       // 把格式挂到列对象上，单元格渲染（display）直接读 column.format，不用再查一次 state。
-      const format = safe.formats?.[key];
+      // 菜单级格式（sharedFormats，见 columnFormats.ts）优先；视图快照里的老格式只作兼容兜底。
+      const format = sharedFormats?.[key] || safe.formats?.[key];
       if (format) column.format = format;
       return column;
     });

@@ -53,7 +53,7 @@
       <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading && !refreshingView && rows.length > 0" :data="displayRows" border stripe :show-summary="rows.length>0" :summary-method="summaryMethod" :height="tableHeight" :row-key="rowKey" :row-class-name="rowClass" :default-sort="defaultSort" :empty-text="error ? '查询失败，请重试' : '没有符合条件的记录'" @sort-change="sortChange">
         <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ rowNumbers.get(rowKey(row)) }}</span></template></el-table-column>
         <el-table-column v-for="column in tableColumns" :key="column.prop" :prop="column.prop" :label="column.label" :width="gridColumnWidth(column)" :fixed="column.fixed" :min-width="gridColumnWidth(column)" :align="column.numeric ? 'right' : 'left'" show-overflow-tooltip>
-          <template #header><el-popover trigger="click" placement="bottom-start" :width="248" :show-after="0" :disabled="formatKindOf(column)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(column)!=='text'}" :title="formatKindOf(column)==='text'?'':'点击设置显示格式'"><span>{{ column.label }}</span><i v-if="column.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="column" :model-value="columnState.formats?columnState.formats[column.prop]:undefined" @update:model-value="applyColumnFormat($event,column)"/></el-popover></template>
+          <template #header><el-popover trigger="click" placement="bottom-start" :width="248" :show-after="0" :disabled="formatKindOf(column)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(column)!=='text'}" :title="formatKindOf(column)==='text'?'':'点击设置显示格式'"><span>{{ column.label }}</span><i v-if="column.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="column" :model-value="columnFormats[column.prop]" @update:model-value="applyColumnFormat($event,column)"/></el-popover></template>
           <template #default="{ row }"><span v-if="row.__group" class="group-cell" :title="row.__groupTitle||row.__group"><template v-if="column.prop===tableColumns[0]?.prop"><span class="group-name">{{ row.__groupName }}</span><span class="group-count">{{ row.__count }} 条</span></template><span v-if="row[column.prop]!==undefined" class="group-sum"><span class="sum-prefix">求和</span><span class="sum-value">{{ display(row[column.prop],column) }}</span></span></span><el-button v-else-if="column.prop === '__actions'" link type="primary" @click="showDetail(row)">详情</el-button><AttachmentImages v-else-if="column.attachment" :value="row[column.prop]"/><span v-else>{{ display(row[column.prop], column) }}</span></template>
         </el-table-column>
 
@@ -115,7 +115,8 @@ import { readViewData, writeViewData, sameRows, sameJson } from './viewDataCache
 import { nextPaint } from './nextPaint';
 import { useSavedViews, type ViewSnapshot, type SavedView, type ViewOrder } from './savedViews';
 import viewPresets from './viewPresets.json';
-import { readPreference, writePreference, normalizeColumns, selectedColumns, normalizeQuery, normalizeDates } from './preferences';
+import { readPreference, writePreference, normalizeColumns, selectedColumns, normalizeQuery, normalizeDates, stripColumnFormats } from './preferences';
+import { columnFormatKey, readColumnFormats, writeColumnFormats, columnFormatsMigrated, migrateViewFormats } from './columnFormats';
 
 const props = defineProps<{ kind: ReportKind; trendOnly?: boolean; preferenceKey?: string }>();
 const kind = computed(() => props.kind);
@@ -131,7 +132,16 @@ const query = reactive<ReportQuery>({ pageNum: 1, pageSize: 100, groupBy: savedG
 const dateRange = ref<string[]>([]);
 const allTableColumns = computed<ReportColumn[]>(() => [...columns.value, { prop: '__actions', label: '操作', width: 87 }]);
 const columnState = ref(normalizeColumns({}, allTableColumns.value));
-const tableColumns = computed(() => selectedColumns(columnState.value, allTableColumns.value));
+/** 表头设的「显示格式」按**菜单**共享（对齐飞书多维表格）：同一报表下所有视图都生效，不跟着视图走。
+ *  老版本存在视图快照里的格式在首次加载时迁移过来（见 columnFormats.ts）。 */
+const formatStorageKey = columnFormatKey(useUserStore().userId, props.preferenceKey || (props.trendOnly ? 'trend' : props.kind));
+const columnFormats = ref<Record<string, ColumnFormat>>(readColumnFormats(formatStorageKey, allTableColumns.value));
+if (!columnFormatsMigrated(formatStorageKey)) {
+  const migrated = migrateViewFormats(basePreferenceKey + ':saved-views', allTableColumns.value);
+  if (migrated) columnFormats.value = migrated;
+  writeColumnFormats(formatStorageKey, columnFormats.value);
+}
+const tableColumns = computed(() => selectedColumns(columnState.value, allTableColumns.value, columnFormats.value));
 const preferenceKey = computed(() => basePreferenceKey + (kind.value === 'monthly' ? ':' + query.groupBy : ':table'));
 const linePreferenceKey = basePreferenceKey + ':lines';
 const lineColumnState = ref(normalizeColumns(readPreference(linePreferenceKey).columns, reportColumns.accrualLines));
@@ -150,7 +160,7 @@ function restorePreferences() {
   setDefaultSort();
   Object.assign(query, normalizeQuery(saved.query, columns.value, { ...query }));
   dateRange.value = normalizeDates(saved.dateRange);
-  columnState.value = normalizeColumns(saved.columns, allTableColumns.value);
+  columnState.value = normalizeColumns(stripColumnFormats(saved.columns), allTableColumns.value);
 }
 function saveView() { viewManager.saveCurrent(); }
 /** 表里正显示的是缓存下来的旧数据、后台正在刷新（多维表格口径）。
@@ -160,9 +170,12 @@ const refreshingView = ref(false);
 function formatKindOf(column: ReportColumn) { return columnFormatKind(column); }
 function applyColumnFormat(value: ColumnFormat | undefined, column: ReportColumn) {
   if (!column) return;
-  const formats = { ...(columnState.value.formats || {}) };
-  if (value && Object.keys(value).length) formats[column.prop] = value; else delete formats[column.prop];
-  columnState.value = normalizeColumns({ ...columnState.value, formats }, allTableColumns.value);
+  // 格式按菜单共享（columnFormats.ts）：写这里而不是写进视图快照，该报表下所有视图立刻一起生效。
+  const next = { ...columnFormats.value };
+  if (value && Object.keys(value).length) next[column.prop] = value; else delete next[column.prop];
+  if (sameJson(next, columnFormats.value)) return;
+  columnFormats.value = next;
+  writeColumnFormats(formatStorageKey, next);
 }
 /** 表格骨架行里灰条的宽度（按列序号循环取值），只为视觉自然，不代表真实列宽。 */
 const SKELETON_BAR_WIDTHS=[92,64,120,78,104,58,86,110,70,96];
@@ -281,9 +294,10 @@ const orderSorts = computed<ViewOrder[]>({
 });
 function handleOrderChange() { query.pageNum = 1; getList(); }
 const defaultSort = computed(() => ({ prop: query.orderByColumn, order: query.isAsc === 'asc' ? 'ascending' as const : 'descending' as const }));
-// ⚠️ 这里必须把整个 columnState（含 formats）放进 key：el-table 对「列 props 更新」不总会重渲染单元格，
-// 报表页实测「设了格式当前页不生效、刷新后才生效」。让 key 变、重建一次表格最可靠（点一次格式而已）。
-const tableKey = computed(() => [kind.value, query.groupBy, query.orderByColumn, query.isAsc, query.groupDesc, JSON.stringify(columnState.value)].join(':'));
+// ⚠️ 这里必须把 formats 放进 key：el-table 对「列 props 更新」不总会重渲染单元格，
+// 报表页实测「设了格式当前页不生效、刷新后才生效」。列格式现在按菜单共享（不在 columnState 里），
+// 所以除了整个 columnState 还要带上 columnFormats。
+const tableKey = computed(() => [kind.value, query.groupBy, query.orderByColumn, query.isAsc, query.groupDesc, JSON.stringify(columnState.value), JSON.stringify(columnFormats.value)].join(':'));
 const summableColumns = computed(() => tableColumns.value.filter(canSumColumn));
 /** 「本页合计」行每列的展示方式（多维表格口径）：'sum' 求和 / 'none' 不展示；未选过的沿用历史默认（可求和的列默认求和）。 */
 const summaryState = ref<Record<string, 'sum' | 'none'>>({});
@@ -490,7 +504,7 @@ watch(() => shopStore.selectionKey, () => {
   rows.value = []; total.value = 0; query.pageNum = 1;
   getList();
 });
-function captureSavedView(): ViewSnapshot { return { query: { ...query, pageNum: 1 }, columns: columnState.value, dateRange: dateRange.value ?? [], summary: { ...summaryState.value } }; }
+function captureSavedView(): ViewSnapshot { return { query: { ...query, pageNum: 1 }, columns: stripColumnFormats(columnState.value), dateRange: dateRange.value ?? [], summary: { ...summaryState.value } }; }
 function applySavedView(snapshot: ViewSnapshot) {
   const saved = snapshot.query || {};
   // 先把新 query 算在一个普通对象里，最后整体比一次；内容没变就不碰 query。
@@ -510,7 +524,7 @@ function applySavedView(snapshot: ViewSnapshot) {
   }
   const nextDates = normalizeDates(snapshot.dateRange);
   if (!sameJson(nextDates, dateRange.value)) dateRange.value = nextDates;
-  const nextColumnState = normalizeColumns(snapshot.columns, allTableColumns.value);
+  const nextColumnState = normalizeColumns(stripColumnFormats(snapshot.columns), allTableColumns.value);
   if (!sameJson(nextColumnState, columnState.value)) columnState.value = nextColumnState;
   const nextSummaryState = cleanSummary(snapshot.summary);
   if (!sameJson(nextSummaryState, summaryState.value)) summaryState.value = nextSummaryState;

@@ -19,7 +19,7 @@
    <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading&&!refreshingView&&rows.length>0" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':row.__new?'business-new-row':''" :height="tableHeight" :default-sort="defaultSort" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
     <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ row.__new?'＋':(rowNumbers.get(String(row.id))??'') }}</span></template></el-table-column>
     <el-table-column v-for="field in visibleColumns" :key="field.prop" :prop="field.prop" :width="gridColumnWidth(field)" :fixed="field.fixed" :align="field.numeric&&!field.reference?'right':'left'" show-overflow-tooltip>
-     <template #header><el-popover trigger="click" placement="bottom-start" :width="248" :show-after="0" :disabled="formatKindOf(field)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(field)!=='text'}" :title="formatKindOf(field)==='text'?'':'点击设置显示格式'"><span v-if="field.reference" class="field-type-icon" title="引用字段" aria-label="引用字段">↗</span><span v-else-if="field.readonly" class="field-type-icon field-type-formula" title="计算字段" aria-label="计算字段">ƒx</span><span v-else-if="field.customId" class="field-type-icon" :title="field.numeric?'数字字段':'文本字段'">{{ field.numeric?'#':'T' }}</span><span>{{ field.label }}</span><i v-if="field.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="field" :model-value="columnState.formats?columnState.formats[field.prop]:undefined" @update:model-value="applyColumnFormat($event,field)"/></el-popover></template>
+     <template #header><el-popover trigger="click" placement="bottom-start" :width="248" :show-after="0" :disabled="formatKindOf(field)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(field)!=='text'}" :title="formatKindOf(field)==='text'?'':'点击设置显示格式'"><span v-if="field.reference" class="field-type-icon" title="引用字段" aria-label="引用字段">↗</span><span v-else-if="field.readonly" class="field-type-icon field-type-formula" title="计算字段" aria-label="计算字段">ƒx</span><span v-else-if="field.customId" class="field-type-icon" :title="field.numeric?'数字字段':'文本字段'">{{ field.numeric?'#':'T' }}</span><span>{{ field.label }}</span><i v-if="field.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="field" :model-value="columnFormats[field.prop]" @update:model-value="applyColumnFormat($event,field)"/></el-popover></template>
      <template #default="{row}">
       <span v-if="row.__group" class="group-cell" :style="field.prop===visibleColumns[0]?.prop?{paddingLeft:(row.__level||0)*14+'px'}:{}" :title="row.__groupTitle||row.__group"><template v-if="field.prop===visibleColumns[0]?.prop"><span class="group-name" :class="{'group-name-secondary':row.__level>0}">{{ row.__groupName }}</span><span class="group-count">{{ row.__count }} 条</span></template><span v-if="row[field.prop]!==undefined" class="group-sum"><span class="sum-prefix">求和</span><span class="sum-value">{{ display(row,field) }}</span></span></span>
       <div v-else-if="field.prop==='__actions'" class="row-actions">
@@ -124,7 +124,7 @@ import type {BusinessRow,BusinessQuery,BusinessCustomField,FilterCondition} from
 import {useUserStore} from '@/store/modules/user';
 import {useOzonShopStore} from '@/store/modules/ozonShop';
 import ColumnSettings from '../components/ColumnSettings.vue';
-import {readPreference,writePreference,normalizeColumns,selectedColumns} from '../components/preferences';
+import {readPreference,writePreference,normalizeColumns,selectedColumns,stripColumnFormats} from '../components/preferences';
 import {businessConfig} from './config';
 import type {BusinessField} from './config';
 import {gridColumnWidth,canSumColumn,sumRowValues,formatNumericColumn,formatDateColumn,columnFormatKind} from '../components/columns';
@@ -139,6 +139,7 @@ import ViewOrdering from '../components/ViewOrdering.vue';
 import FilterBuilder from '../components/FilterBuilder.vue';
 import {readViewData,writeViewData,sameRows,sameJson} from '../components/viewDataCache';
 import {nextPaint} from '../components/nextPaint';
+import {columnFormatKey,readColumnFormats,writeColumnFormats,columnFormatsMigrated,migrateViewFormats} from '../components/columnFormats';
 import {useSavedViews,type ViewSnapshot,type ViewOrder,type SavedView} from '../components/savedViews';
 import viewPresets from '../components/viewPresets.json';
 const props=defineProps<{table:string}>();const config=businessConfig[props.table];
@@ -191,6 +192,15 @@ function resolveConditions(source:Record<string,any>):FilterCondition[]{
 const query=reactive<BusinessQuery>({pageNum:1,pageSize:[10,20,50,100].includes(Number(savedQuery.pageSize))?Number(savedQuery.pageSize):100,orderByColumn:validColumns.has(savedQuery.orderByColumn||'')?savedQuery.orderByColumn:'id',isAsc:savedQuery.isAsc==='asc'?'asc':'desc',manualOrder:savedQuery.manualOrder===true,keyword:typeof savedQuery.keyword==='string'?savedQuery.keyword:'',filters:{},ends:{},equals:{},conditions:resolveConditions(savedQuery as Record<string,any>),conjunction:savedQuery.conjunction==='or'?'or':'and'});
 const initialColumns=saved.columns||{hidden:['id','createdAt','updatedAt']};
 const columnState=ref(normalizeColumns(initialColumns,allColumns.value));
+/** 表头设的「显示格式」按**菜单**共享（对齐飞书多维表格）：同一个菜单下的所有视图都生效，不跟着视图走。
+ *  声明必须早于 visibleColumns / tableKey；老版本存在视图快照里的格式在首次加载时迁移过来。 */
+const formatStorageKey=columnFormatKey(useUserStore().userId,props.table);
+const columnFormats=ref<Record<string,ColumnFormat>>(readColumnFormats(formatStorageKey,allColumns.value));
+if(!columnFormatsMigrated(formatStorageKey)){
+ const migrated=migrateViewFormats(storageKey+':saved-views',allColumns.value);
+ if(migrated)columnFormats.value=migrated;
+ writeColumnFormats(formatStorageKey,columnFormats.value);
+}
 /** 「本页合计」行每列的展示方式（多维表格口径）：'sum' 求和 / 'none' 不展示；未选过的沿用历史默认（可求和的列默认求和）。
  *  ⚠️ 必须声明在 useSavedViews 之前：它在 setup 阶段就会 restore() 一次（写回本状态），晚了会踩暂时性死区。 */
 const summaryState=ref<Record<string,'sum'|'none'>>({});
@@ -203,7 +213,7 @@ function cleanOrder(value:unknown,max:number):ViewOrder[]{
   return (Array.isArray(value)?value:[]).filter(v=>v&&orderColumns.value.some(c=>c.prop===v.field)&&!seen.has(v.field)&&seen.add(v.field))
     .slice(0,max).map(v=>({field:v.field,desc:v.desc===true}));
 }
-function captureView():ViewSnapshot{return {query:{...query,pageNum:1},columns:columnState.value,groups:groups.value,sorts:sorts.value,summary:{...summaryState.value}};}
+function captureView():ViewSnapshot{return {query:{...query,pageNum:1},columns:stripColumnFormats(columnState.value),groups:groups.value,sorts:sorts.value,summary:{...summaryState.value}};}
 function restoreView(snapshot:ViewSnapshot){
   const q=snapshot.query||{};
   Object.assign(query,{pageNum:1,pageSize:[10,20,50,100].includes(Number(q.pageSize))?Number(q.pageSize):100,
@@ -218,7 +228,7 @@ function restoreView(snapshot:ViewSnapshot){
   const nextSorts=cleanOrder(snapshot.sorts??[{field:query.orderByColumn,desc:query.isAsc!=='asc'}],5);
   if(!sameJson(nextSorts,sorts.value))sorts.value=nextSorts;
   if(groups.value.length||sorts.value.length)query.manualOrder=false;
-  const nextColumnState=normalizeColumns(snapshot.columns,allColumns.value);
+  const nextColumnState=normalizeColumns(stripColumnFormats(snapshot.columns),allColumns.value);
   if(!sameJson(nextColumnState,columnState.value))columnState.value=nextColumnState;
   const nextSummaryState=cleanSummary(snapshot.summary);
   if(!sameJson(nextSummaryState,summaryState.value))summaryState.value=nextSummaryState;
@@ -263,11 +273,11 @@ async function viewAction(action:'add'|'rename'|'remove'|'reset'){if(await viewM
 
 function persist(){viewManager.saveCurrent();}
 watch(columnState,persist,{deep:true});
-const visibleColumns=computed(()=>{const columns=selectedColumns(columnState.value,activeColumns.value) as BusinessField[];return draftCount.value?columns:columns.filter(field=>field.prop!=='__actions');});
+const visibleColumns=computed(()=>{const columns=selectedColumns(columnState.value,activeColumns.value,columnFormats.value) as BusinessField[];return draftCount.value?columns:columns.filter(field=>field.prop!=='__actions');});
 /** 视图快照 key：列设置/分组/排序变化时重建表格。
  *  ⚠️ 不要把 draftCount 放进来——草稿行出现会重建整个 el-table，把正在上传的单元格组件卸载，
  *  Vue 会丢弃已卸载实例的 emit（丢图），并且表格滚动位置会被重置到顶部。操作列由 visibleColumns 动态增删。 */
-const tableKey=computed(()=>JSON.stringify([columnState.value.order,columnState.value.hidden,columnState.value.fixed,activeColumns.value.map(f=>f.prop),groups.value,sorts.value]));
+const tableKey=computed(()=>JSON.stringify([columnState.value.order,columnState.value.hidden,columnState.value.fixed,columnFormats.value,activeColumns.value.map(f=>f.prop),groups.value,sorts.value]));
 const defaultSort=computed(()=>sorts.value.length?{prop:sorts.value[0].field,order:sorts.value[0].desc===false?'ascending' as const:'descending' as const}:{prop:'',order:null});
 const allFilterFields=computed(()=>config.columns.filter(field=>!removedFields.value.includes(field.prop)&&!field.attachment&&!field.multiple));
 /** 选了具体店铺时，店铺已由顶部全局选择器限定，筛选面板里就不再重复提供该列；选「全部」时恢复。 */
@@ -409,9 +419,12 @@ const columnMenu=ref<{x:number;y:number;field:BusinessField}|null>(null);
 function formatKindOf(field:BusinessField){return columnFormatKind(field);}
 function applyColumnFormat(value:ColumnFormat|undefined,field:BusinessField){
  if(!field)return;
- const formats={...(columnState.value.formats||{})};
- if(value&&Object.keys(value).length)formats[field.prop]=value;else delete formats[field.prop];
- columnState.value=normalizeColumns({...columnState.value,formats},allColumns.value);
+ // 格式按菜单共享（columnFormats.ts）：写这里而不是写进视图快照，该菜单下所有视图立刻一起生效。
+ const next={...columnFormats.value};
+ if(value&&Object.keys(value).length)next[field.prop]=value;else delete next[field.prop];
+ if(sameJson(next,columnFormats.value))return;
+ columnFormats.value=next;
+ writeColumnFormats(formatStorageKey,next);
 }
 const customColumnOpen=ref(false),customColumnSaving=ref(false),customColumnName=ref(''),customColumnType=ref<'text'|'number'>('text');
 const customColumnAnchor=ref<{prop:string;side:'before'|'after'}|null>(null);
