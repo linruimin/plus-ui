@@ -157,9 +157,10 @@ const refreshingView = ref(false);
 const SKELETON_BAR_WIDTHS=[92,64,120,78,104,58,86,110,70,96];
 function skeletonBarWidth(index:number){return SKELETON_BAR_WIDTHS[(index-1)%SKELETON_BAR_WIDTHS.length]+'px';}
 /** 视图数据缓存 key：同一个报表 + 同一个视图 + 同一个店铺作用域才算同一份数据。 */
+/** 缓存 key 带账号 id（basePreferenceKey 已含）+ 页面 + 视图 + 店铺作用域。 */
 function viewCacheKey(viewId: string) {
   const shop = kind.value === 'accruals' ? shopStore.selectedId : '';
-  return 'report|' + (props.preferenceKey || (props.trendOnly ? 'trend' : props.kind)) + '|' + viewId + '|' + (shop || 'all');
+  return basePreferenceKey + '|' + viewId + '|' + (shop || 'all');
 }
 /** 首次进入页面时也用上缓存：命中就先渲染，随后 getList 在后台校正。 */
 function seedFromViewCache() {

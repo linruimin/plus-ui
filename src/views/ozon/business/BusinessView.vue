@@ -231,7 +231,8 @@ const SKELETON_BAR_WIDTHS=[92,64,120,78,104,58,86,110,70,96];
 function skeletonBarWidth(index:number){return SKELETON_BAR_WIDTHS[(index-1)%SKELETON_BAR_WIDTHS.length]+'px';}
 /** 视图数据缓存 key：同一张表 + 同一个视图 + 同一个店铺作用域才算同一份数据。
  *  「全部店铺」用 'all' 与具体店铺区分开，免得切换店铺时先闪一眼别家的记录。 */
-function viewCacheKey(viewId:string){const shop=shopStore.scopedShopId;return props.table+'|'+viewId+'|'+(shop===undefined||shop===null||shop===''?'all':String(shop));}
+/** 缓存 key 带账号 id（storageKey 已含）+ 表 + 视图 + 店铺作用域：换账号 / 换店铺都不会串数据。 */
+function viewCacheKey(viewId:string){const shop=shopStore.scopedShopId;return storageKey+'|'+viewId+'|'+(shop===undefined||shop===null||shop===''?'all':String(shop));}
 /** 切换视图（多维表格口径）：**先把「选中态」画出来**，再应用配置、铺缓存数据、后台刷新。
  *  ⚠️ 必须拆成两帧：applyActive() 会改 groups/columns/rows → 触发整表重渲染（实测 200~500ms），
  *  若与 activeId 挤在同一帧，按钮颜色要等重渲染做完才上屏 —— 就是「点完等一会才变色」的割裂感。
