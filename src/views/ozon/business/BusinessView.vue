@@ -16,7 +16,7 @@
    <el-alert v-if="storageWarning || viewManager.storageWarning.value" title="当前浏览器无法保存视图设置" type="warning" :closable="false"/>
    <el-alert v-if="error" :title="error" type="error" :closable="false"/>
    <div ref="tableViewport" class="table-viewport" @click="onSummaryCellClick">
-   <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading&&!refreshingView" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':row.__new?'business-new-row':''" :height="tableHeight" :default-sort="defaultSort" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
+   <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading&&!refreshingView&&rows.length>0" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':row.__new?'business-new-row':''" :height="tableHeight" :default-sort="defaultSort" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
     <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ row.__new?'＋':(rowNumbers.get(String(row.id))??'') }}</span></template></el-table-column>
     <el-table-column v-for="field in visibleColumns" :key="field.prop" :prop="field.prop" :width="gridColumnWidth(field)" :fixed="field.fixed" :sortable="field.attachment||field.prop==='__actions'||field.multiple||field.customId?false:'custom'" :align="field.numeric&&!field.reference?'right':'left'" show-overflow-tooltip>
      <template #header><span class="field-heading"><span v-if="field.reference" class="field-type-icon" title="引用字段" aria-label="引用字段">↗</span><span v-else-if="field.readonly" class="field-type-icon field-type-formula" title="计算字段" aria-label="计算字段">ƒx</span><span v-else-if="field.customId" class="field-type-icon" :title="field.numeric?'数字字段':'文本字段'">{{ field.numeric?'#':'T' }}</span><span>{{ field.label }}</span></span></template>
@@ -53,6 +53,15 @@
       <span v-else>{{ display(row,field) }}</span>
      </template>
     </el-table-column>
+       <template #empty>
+     <div v-if="loading" class="grid-skeleton" role="status" aria-live="polite">
+      <span class="grid-skeleton-hint"><i class="view-refreshing-dot"></i>数据加载中…</span>
+      <span v-for="r in 20" :key="r" class="grid-skeleton-row">
+       <span v-for="c in 14" :key="c" class="grid-skeleton-cell"><i :style="{width:skeletonBarWidth(c)}"></i></span>
+      </span>
+     </div>
+     <span v-else class="grid-empty-text">暂无数据</span>
+    </template>
    </el-table>
    <div v-show="hasHorizontalScroll" ref="horizontalTrack" class="horizontal-track" aria-label="表格横向滚动条" @scroll="onTrackScroll"><div :style="{width:scrollContentWidth+'px',height:'1px'}"/></div>
    <div v-if="columnMenu" class="grid-context-menu" :style="{left:columnMenu.x+'px',top:columnMenu.y+'px'}" role="menu">
@@ -217,6 +226,9 @@ const viewManager=useSavedViews(storageKey+':saved-views',defaults,captureView,r
 /** 表里正显示的是缓存下来的旧数据、后台正在刷新（多维表格口径）。
  *  true 时不盖 loading 遮罩，改为工具条上一个小框提示「数据更新中」。 */
 const refreshingView=ref(false);
+/** 表格骨架行里灰条的宽度（按列序号循环取值），只为视觉自然，不代表真实列宽。 */
+const SKELETON_BAR_WIDTHS=[92,64,120,78,104,58,86,110,70,96];
+function skeletonBarWidth(index:number){return SKELETON_BAR_WIDTHS[(index-1)%SKELETON_BAR_WIDTHS.length]+'px';}
 /** 视图数据缓存 key：同一张表 + 同一个视图 + 同一个店铺作用域才算同一份数据。
  *  「全部店铺」用 'all' 与具体店铺区分开，免得切换店铺时先闪一眼别家的记录。 */
 function viewCacheKey(viewId:string){const shop=shopStore.scopedShopId;return props.table+'|'+viewId+'|'+(shop===undefined||shop===null||shop===''?'all':String(shop));}
@@ -611,6 +623,20 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();seedFromViewCache();vo
 .view-refreshing-dot{display:inline-block;width:9px;height:9px;border:1.5px solid var(--el-color-primary);border-top-color:transparent;border-radius:50%;animation:view-refreshing-spin .7s linear infinite}
 @keyframes view-refreshing-spin{to{transform:rotate(360deg)}}
 .business-view :deep(.ozon-data-grid .caret-wrapper){display:none}
+/* 数据加载中的表格骨架：没有数据可显示时，用它替代原来的「整表白底遮罩 + 中间一个小转圈」。
+   实测原来的遮罩在浅色主题下等于给整块表格铺白（点击到遮罩淡入之间还有 ~190ms 空档），
+   看起来就是「页面空白」。骨架保留表头，让人一眼看出切到了哪个视图、正在装数据。
+   版式对齐真实表格：行高 32、列宽 150、单元格左右内边距 10。 */
+:deep(.ozon-data-grid .el-table__empty-block){align-items:flex-start;justify-content:flex-start;overflow:hidden;min-height:100%}
+:deep(.ozon-data-grid .el-table__empty-text){display:block;width:100%;line-height:1;text-align:left;overflow:hidden}
+.grid-skeleton{width:100%}
+.grid-skeleton-hint{display:flex;align-items:center;justify-content:center;gap:6px;height:32px;color:var(--el-text-color-secondary);font-size:12px}
+.grid-skeleton-row{display:flex;align-items:center;height:32px;border-bottom:1px solid var(--el-border-color-lighter)}
+.grid-skeleton-cell{flex:0 0 150px;display:flex;align-items:center;padding:0 10px}
+.grid-skeleton-cell>i{display:block;height:10px;border-radius:3px;background:linear-gradient(90deg,var(--el-fill-color-light) 25%,var(--el-fill-color) 37%,var(--el-fill-color-light) 63%);background-size:400% 100%;animation:grid-skeleton-shine 1.4s ease infinite}
+@keyframes grid-skeleton-shine{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.grid-empty-text{display:block;padding:48px 0;text-align:center;color:var(--el-text-color-secondary)}
+@media (prefers-reduced-motion:reduce){.grid-skeleton-cell>i{animation:none}}
 .business-view :deep(.ozon-data-grid .el-input__wrapper),.business-view :deep(.ozon-data-grid .el-select__wrapper){min-height:28px}
 .business-view :deep(.ozon-data-grid .el-input__inner),.business-view :deep(.ozon-data-grid .el-select__selected-item),.business-view :deep(.ozon-data-grid .el-button){font-family:inherit}
 .business-view :deep(.ozon-data-grid .el-input__inner),.business-view :deep(.ozon-data-grid .el-select__selected-item){font-size:14px}

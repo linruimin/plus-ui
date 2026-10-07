@@ -50,12 +50,21 @@
       <el-alert v-if="storageWarning || viewManager.storageWarning.value" title="浏览器未允许保存设置，本次调整仍有效，但重新打开后可能无法恢复。" type="warning" :closable="false" />
       <SalesTrendChart v-if="kind === 'accruals' && accrualView === 'chart'" :query="trendQuery" :storage-key="basePreferenceKey + ':chart'" @detail="showDetail" />
       <div v-if="!trendOnly" ref="tableViewport" class="table-viewport" @click="onSummaryCellClick">
-      <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading && !refreshingView" :data="displayRows" border stripe :show-summary="rows.length>0" :summary-method="summaryMethod" :height="tableHeight" :row-key="rowKey" :row-class-name="rowClass" :default-sort="defaultSort" :empty-text="error ? '查询失败，请重试' : '没有符合条件的记录'" @sort-change="sortChange">
+      <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading && !refreshingView && rows.length > 0" :data="displayRows" border stripe :show-summary="rows.length>0" :summary-method="summaryMethod" :height="tableHeight" :row-key="rowKey" :row-class-name="rowClass" :default-sort="defaultSort" :empty-text="error ? '查询失败，请重试' : '没有符合条件的记录'" @sort-change="sortChange">
         <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ rowNumbers.get(rowKey(row)) }}</span></template></el-table-column>
         <el-table-column v-for="column in tableColumns" :key="column.prop" :prop="column.prop" :label="column.label" :width="gridColumnWidth(column)" :fixed="column.fixed" :min-width="gridColumnWidth(column)" :sortable="column.attachment || column.prop === '__actions' ? false : 'custom'" :align="column.numeric ? 'right' : 'left'" show-overflow-tooltip>
           <template #default="{ row }"><span v-if="row.__group" class="group-cell" :title="row.__groupTitle||row.__group"><template v-if="column.prop===tableColumns[0]?.prop"><span class="group-name">{{ row.__groupName }}</span><span class="group-count">{{ row.__count }} 条</span></template><span v-if="row[column.prop]!==undefined" class="group-sum"><span class="sum-prefix">求和</span><span class="sum-value">{{ display(row[column.prop],column) }}</span></span></span><el-button v-else-if="column.prop === '__actions'" link type="primary" @click="showDetail(row)">详情</el-button><AttachmentImages v-else-if="column.attachment" :value="row[column.prop]"/><span v-else>{{ display(row[column.prop], column) }}</span></template>
         </el-table-column>
 
+            <template #empty>
+       <div v-if="loading" class="grid-skeleton" role="status" aria-live="polite">
+        <span class="grid-skeleton-hint"><i class="view-refreshing-dot"></i>数据加载中…</span>
+        <span v-for="r in 20" :key="r" class="grid-skeleton-row">
+         <span v-for="c in 14" :key="c" class="grid-skeleton-cell"><i :style="{width:skeletonBarWidth(c)}"></i></span>
+        </span>
+       </div>
+       <span v-else class="grid-empty-text">{{ error ? '查询失败，请重试' : '没有符合条件的记录' }}</span>
+      </template>
       </el-table>
       <div v-show="hasHorizontalScroll" ref="horizontalTrack" class="horizontal-track" aria-label="表格横向滚动条" @scroll="onTrackScroll"><div :style="{width:scrollContentWidth+'px',height:'1px'}"/></div>
         <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" class="table-error" />
@@ -144,6 +153,9 @@ function saveView() { viewManager.saveCurrent(); }
 /** 表里正显示的是缓存下来的旧数据、后台正在刷新（多维表格口径）。
  *  true 时不盖 loading 遮罩，改为工具条上一个小框提示「数据更新中」。 */
 const refreshingView = ref(false);
+/** 表格骨架行里灰条的宽度（按列序号循环取值），只为视觉自然，不代表真实列宽。 */
+const SKELETON_BAR_WIDTHS=[92,64,120,78,104,58,86,110,70,96];
+function skeletonBarWidth(index:number){return SKELETON_BAR_WIDTHS[(index-1)%SKELETON_BAR_WIDTHS.length]+'px';}
 /** 视图数据缓存 key：同一个报表 + 同一个视图 + 同一个店铺作用域才算同一份数据。 */
 function viewCacheKey(viewId: string) {
   const shop = kind.value === 'accruals' ? shopStore.selectedId : '';
@@ -536,6 +548,20 @@ onBeforeUnmount(() => {
 .view-refreshing { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 20px; padding: 0 8px; border: 1px solid var(--el-border-color-lighter); border-radius: 4px; background: var(--el-bg-color-overlay); color: var(--el-text-color-secondary); font-size: 12px; line-height: 1; white-space: nowrap; }
 .view-refreshing-dot { display: inline-block; width: 9px; height: 9px; border: 1.5px solid var(--el-color-primary); border-top-color: transparent; border-radius: 50%; animation: view-refreshing-spin .7s linear infinite; }
 @keyframes view-refreshing-spin { to { transform: rotate(360deg); } }
+/* 数据加载中的表格骨架：没有数据可显示时，用它替代原来的「整表白底遮罩 + 中间一个小转圈」。
+   实测原来的遮罩在浅色主题下等于给整块表格铺白（点击到遮罩淡入之间还有 ~190ms 空档），
+   看起来就是「页面空白」。骨架保留表头，让人一眼看出切到了哪个视图、正在装数据。
+   版式对齐真实表格：行高 32、列宽 150、单元格左右内边距 10。 */
+:deep(.ozon-data-grid .el-table__empty-block){align-items:flex-start;justify-content:flex-start;overflow:hidden;min-height:100%}
+:deep(.ozon-data-grid .el-table__empty-text){display:block;width:100%;line-height:1;text-align:left;overflow:hidden}
+.grid-skeleton{width:100%}
+.grid-skeleton-hint{display:flex;align-items:center;justify-content:center;gap:6px;height:32px;color:var(--el-text-color-secondary);font-size:12px}
+.grid-skeleton-row{display:flex;align-items:center;height:32px;border-bottom:1px solid var(--el-border-color-lighter)}
+.grid-skeleton-cell{flex:0 0 150px;display:flex;align-items:center;padding:0 10px}
+.grid-skeleton-cell>i{display:block;height:10px;border-radius:3px;background:linear-gradient(90deg,var(--el-fill-color-light) 25%,var(--el-fill-color) 37%,var(--el-fill-color-light) 63%);background-size:400% 100%;animation:grid-skeleton-shine 1.4s ease infinite}
+@keyframes grid-skeleton-shine{0%{background-position:100% 50%}100%{background-position:0 50%}}
+.grid-empty-text{display:block;padding:48px 0;text-align:center;color:var(--el-text-color-secondary)}
+@media (prefers-reduced-motion:reduce){.grid-skeleton-cell>i{animation:none}}
 
 /* 「本页合计」行的弹层：点格子选「不展示 / 求和」。 */
 .grid-context-menu { position: fixed; z-index: 3000; min-width: 170px; padding: 4px; background: var(--el-bg-color-overlay); border: 1px solid var(--el-border-color-light); border-radius: 6px; box-shadow: var(--el-box-shadow-light); }
