@@ -1,7 +1,13 @@
-import type { ReportColumn } from './columns';
+import type { ReportColumn, ColumnFormat } from './columns';
 import type { ReportQuery } from '@/api/ozon/report/types';
 
-export interface ColumnPreference { order: string[]; hidden: string[]; fixed?: Record<string, 'left' | 'right'> }
+export interface ColumnPreference {
+  order: string[];
+  hidden: string[];
+  fixed?: Record<string, 'left' | 'right'>;
+  /** 表头格式面板里设置过的列显示格式（列 prop → 格式），随视图一起保存。 */
+  formats?: Record<string, ColumnFormat>;
+}
 
 /** 只保存视图偏好；损坏或不可用的本地存储不会影响报表查询。 */
 export function readPreference(key: string): Record<string, unknown> {
@@ -41,13 +47,34 @@ export function normalizeColumns(value: unknown, columns: ReportColumn[]): Colum
   if (keys.some(key => key !== '__actions') && keys.filter(key => key !== '__actions').every(key => hidden.includes(key))) {
     hidden.splice(hidden.indexOf(order.find(key => key !== '__actions')!), 1);
   }
-  return { order, hidden, fixed };
+  // 列格式：只保留列定义里存在的 prop，且值必须合法（避免老快照/手改数据带进脏值）。
+  const formats: Record<string, ColumnFormat> = {};
+  const savedFormats = saved.formats && typeof saved.formats === 'object' && !Array.isArray(saved.formats)
+    ? saved.formats as Record<string, unknown> : {};
+  for (const key of keys) {
+    const raw = savedFormats[key];
+    if (!raw || typeof raw !== 'object') continue;
+    const source = raw as ColumnFormat;
+    const next: ColumnFormat = {};
+    if (source.date === 'date' || source.date === 'datetime') next.date = source.date;
+    if (typeof source.digits === 'number' && Number.isFinite(source.digits)) {
+      next.digits = Math.min(Math.max(Math.round(source.digits), 0), 6);
+    }
+    if (Object.keys(next).length) formats[key] = next;
+  }
+  return { order, hidden, fixed, formats };
 }
 export function selectedColumns(value: ColumnPreference, columns: ReportColumn[]): ReportColumn[] {
   const safe = normalizeColumns(value, columns);
   const rank = (key: string) => key === '__actions' ? 3 : safe.fixed?.[key] === 'left' ? 0 : safe.fixed?.[key] === 'right' ? 2 : 1;
   return safe.order.filter(key => !safe.hidden.includes(key)).sort((a, b) => rank(a) - rank(b))
-    .map(key => ({ ...columns.find(column => column.prop === key)!, fixed: safe.fixed?.[key] }));
+    .map(key => {
+      const column = { ...columns.find(item => item.prop === key)!, fixed: safe.fixed?.[key] };
+      // 把格式挂到列对象上，单元格渲染（display）直接读 column.format，不用再查一次 state。
+      const format = safe.formats?.[key];
+      if (format) column.format = format;
+      return column;
+    });
 }
 export function normalizeQuery(value: unknown, columns: ReportColumn[], defaults: ReportQuery): ReportQuery {
   const saved = value && typeof value === 'object' ? value as Record<string, unknown> : {};

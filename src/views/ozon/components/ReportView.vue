@@ -52,7 +52,8 @@
       <div v-if="!trendOnly" ref="tableViewport" class="table-viewport" @click="onSummaryCellClick">
       <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading && !refreshingView && rows.length > 0" :data="displayRows" border stripe :show-summary="rows.length>0" :summary-method="summaryMethod" :height="tableHeight" :row-key="rowKey" :row-class-name="rowClass" :default-sort="defaultSort" :empty-text="error ? '查询失败，请重试' : '没有符合条件的记录'" @sort-change="sortChange">
         <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ rowNumbers.get(rowKey(row)) }}</span></template></el-table-column>
-        <el-table-column v-for="column in tableColumns" :key="column.prop" :prop="column.prop" :label="column.label" :width="gridColumnWidth(column)" :fixed="column.fixed" :min-width="gridColumnWidth(column)" :sortable="column.attachment || column.prop === '__actions' ? false : 'custom'" :align="column.numeric ? 'right' : 'left'" show-overflow-tooltip>
+        <el-table-column v-for="column in tableColumns" :key="column.prop" :prop="column.prop" :label="column.label" :width="gridColumnWidth(column)" :fixed="column.fixed" :min-width="gridColumnWidth(column)" :align="column.numeric ? 'right' : 'left'" show-overflow-tooltip>
+          <template #header><el-popover trigger="click" placement="bottom-start" :width="248" :show-after="0" :disabled="formatKindOf(column)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(column)!=='text'}" :title="formatKindOf(column)==='text'?'':'点击设置显示格式'"><span>{{ column.label }}</span><i v-if="column.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="column" :model-value="columnState.formats?columnState.formats[column.prop]:undefined" @update:model-value="applyColumnFormat($event,column)"/></el-popover></template>
           <template #default="{ row }"><span v-if="row.__group" class="group-cell" :title="row.__groupTitle||row.__group"><template v-if="column.prop===tableColumns[0]?.prop"><span class="group-name">{{ row.__groupName }}</span><span class="group-count">{{ row.__count }} 条</span></template><span v-if="row[column.prop]!==undefined" class="group-sum"><span class="sum-prefix">求和</span><span class="sum-value">{{ display(row[column.prop],column) }}</span></span></span><el-button v-else-if="column.prop === '__actions'" link type="primary" @click="showDetail(row)">详情</el-button><AttachmentImages v-else-if="column.attachment" :value="row[column.prop]"/><span v-else>{{ display(row[column.prop], column) }}</span></template>
         </el-table-column>
 
@@ -99,7 +100,9 @@ import { computed, onMounted, onActivated, onBeforeUnmount, nextTick, reactive, 
 import { listReport, listAccrualLines, scopeReportQuery } from '@/api/ozon/report';
 import type { ReportKind, ReportQuery, ReportRow } from '@/api/ozon/report/types';
 import { useLoading } from '@/hooks/async/useLoading';
-import { reportColumns, gridColumnWidth, canSumColumn, sumRowValues, formatNumericColumn } from './columns';
+import { reportColumns, gridColumnWidth, canSumColumn, sumRowValues, formatNumericColumn, formatDateColumn, columnFormatKind } from './columns';
+import type { ColumnFormat } from './columns';
+import ColumnFormatPanel from './ColumnFormatPanel.vue';
 import type { ReportColumn } from './columns';
 import SalesTrendChart from './SalesTrendChart.vue';
 import AttachmentImages from './AttachmentImages.vue';
@@ -153,6 +156,14 @@ function saveView() { viewManager.saveCurrent(); }
 /** 表里正显示的是缓存下来的旧数据、后台正在刷新（多维表格口径）。
  *  true 时不盖 loading 遮罩，改为工具条上一个小框提示「数据更新中」。 */
 const refreshingView = ref(false);
+/** 表头字段名可点：弹出「显示格式」面板（文本列 disabled，不弹）。 */
+function formatKindOf(column: ReportColumn) { return columnFormatKind(column); }
+function applyColumnFormat(value: ColumnFormat | undefined, column: ReportColumn) {
+  if (!column) return;
+  const formats = { ...(columnState.value.formats || {}) };
+  if (value && Object.keys(value).length) formats[column.prop] = value; else delete formats[column.prop];
+  columnState.value = normalizeColumns({ ...columnState.value, formats }, allTableColumns.value);
+}
 /** 表格骨架行里灰条的宽度（按列序号循环取值），只为视觉自然，不代表真实列宽。 */
 const SKELETON_BAR_WIDTHS=[92,64,120,78,104,58,86,110,70,96];
 function skeletonBarWidth(index:number){return SKELETON_BAR_WIDTHS[(index-1)%SKELETON_BAR_WIDTHS.length]+'px';}
@@ -270,6 +281,8 @@ const orderSorts = computed<ViewOrder[]>({
 });
 function handleOrderChange() { query.pageNum = 1; getList(); }
 const defaultSort = computed(() => ({ prop: query.orderByColumn, order: query.isAsc === 'asc' ? 'ascending' as const : 'descending' as const }));
+// ⚠️ 这里必须把整个 columnState（含 formats）放进 key：el-table 对「列 props 更新」不总会重渲染单元格，
+// 报表页实测「设了格式当前页不生效、刷新后才生效」。让 key 变、重建一次表格最可靠（点一次格式而已）。
 const tableKey = computed(() => [kind.value, query.groupBy, query.orderByColumn, query.isAsc, query.groupDesc, JSON.stringify(columnState.value)].join(':'));
 const summableColumns = computed(() => tableColumns.value.filter(canSumColumn));
 /** 「本页合计」行每列的展示方式（多维表格口径）：'sum' 求和 / 'none' 不展示；未选过的沿用历史默认（可求和的列默认求和）。 */
@@ -374,6 +387,8 @@ function rowKey(row: ReportRow) { return String(row.__key ?? row.rowId ?? row.id
 function rowClass({ row }: { row: ReportRow }) { return row.__group ? 'report-group-row' : ''; }
 function display(value: ReportRow[string], column: ReportColumn) {
   if (value === null || value === undefined || value === '') return '—';
+  // 用户在表头设过日期格式就以他选的为准；没设过时「统计月份」保持原来的只到月份。
+  if (column.format?.date) return formatDateColumn(value, column);
   if (column.prop === 'reportMonth') return String(value).slice(0, 7);
   if (column.numeric || column.decimal) return formatNumericColumn(value, column);
   return String(value);
@@ -546,6 +561,11 @@ onBeforeUnmount(() => {
 .group-cell { display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap; }.group-name { font-size: 14px; font-weight: 600; color: var(--el-text-color-primary); }.group-count { font-size: 12px; font-weight: 400; color: var(--el-text-color-secondary); }.group-sum { display: inline-flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }.sum-prefix { font-size: 12px; font-weight: 400; color: var(--el-text-color-secondary); }.sum-value { font-size: 13px; font-weight: 400; color: var(--el-text-color-primary); }
 
 /* 切视图时表里已是缓存旧数据，工具条上给个小框提示后台在刷新（多维表格口径）。 */
+/* 表头字段名可点：弹「显示格式」面板（可设格式的列才给 pointer 与悬停色）。 */
+.field-heading { cursor: pointer; user-select: none; }
+.field-heading:not(.is-formatable) { cursor: default; }
+.field-heading.is-formatable:hover { color: var(--el-color-primary); }
+.field-format-dot { display: inline-block; width: 5px; height: 5px; margin-left: 4px; border-radius: 50%; background: var(--el-color-primary); vertical-align: middle; }
 .view-refreshing { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 20px; padding: 0 8px; border: 1px solid var(--el-border-color-lighter); border-radius: 4px; background: var(--el-bg-color-overlay); color: var(--el-text-color-secondary); font-size: 12px; line-height: 1; white-space: nowrap; }
 .view-refreshing-dot { display: inline-block; width: 9px; height: 9px; border: 1.5px solid var(--el-color-primary); border-top-color: transparent; border-radius: 50%; animation: view-refreshing-spin .7s linear infinite; }
 @keyframes view-refreshing-spin { to { transform: rotate(360deg); } }

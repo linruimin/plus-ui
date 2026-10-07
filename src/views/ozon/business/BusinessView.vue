@@ -18,8 +18,8 @@
    <div ref="tableViewport" class="table-viewport" @click="onSummaryCellClick">
    <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading&&!refreshingView&&rows.length>0" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':row.__new?'business-new-row':''" :height="tableHeight" :default-sort="defaultSort" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
     <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ row.__new?'＋':(rowNumbers.get(String(row.id))??'') }}</span></template></el-table-column>
-    <el-table-column v-for="field in visibleColumns" :key="field.prop" :prop="field.prop" :width="gridColumnWidth(field)" :fixed="field.fixed" :sortable="field.attachment||field.prop==='__actions'||field.multiple||field.customId?false:'custom'" :align="field.numeric&&!field.reference?'right':'left'" show-overflow-tooltip>
-     <template #header><span class="field-heading"><span v-if="field.reference" class="field-type-icon" title="引用字段" aria-label="引用字段">↗</span><span v-else-if="field.readonly" class="field-type-icon field-type-formula" title="计算字段" aria-label="计算字段">ƒx</span><span v-else-if="field.customId" class="field-type-icon" :title="field.numeric?'数字字段':'文本字段'">{{ field.numeric?'#':'T' }}</span><span>{{ field.label }}</span></span></template>
+    <el-table-column v-for="field in visibleColumns" :key="field.prop" :prop="field.prop" :width="gridColumnWidth(field)" :fixed="field.fixed" :align="field.numeric&&!field.reference?'right':'left'" show-overflow-tooltip>
+     <template #header><el-popover trigger="click" placement="bottom-start" :width="248" :show-after="0" :disabled="formatKindOf(field)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(field)!=='text'}" :title="formatKindOf(field)==='text'?'':'点击设置显示格式'"><span v-if="field.reference" class="field-type-icon" title="引用字段" aria-label="引用字段">↗</span><span v-else-if="field.readonly" class="field-type-icon field-type-formula" title="计算字段" aria-label="计算字段">ƒx</span><span v-else-if="field.customId" class="field-type-icon" :title="field.numeric?'数字字段':'文本字段'">{{ field.numeric?'#':'T' }}</span><span>{{ field.label }}</span><i v-if="field.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="field" :model-value="columnState.formats?columnState.formats[field.prop]:undefined" @update:model-value="applyColumnFormat($event,field)"/></el-popover></template>
      <template #default="{row}">
       <span v-if="row.__group" class="group-cell" :style="field.prop===visibleColumns[0]?.prop?{paddingLeft:(row.__level||0)*14+'px'}:{}" :title="row.__groupTitle||row.__group"><template v-if="field.prop===visibleColumns[0]?.prop"><span class="group-name" :class="{'group-name-secondary':row.__level>0}">{{ row.__groupName }}</span><span class="group-count">{{ row.__count }} 条</span></template><span v-if="row[field.prop]!==undefined" class="group-sum"><span class="sum-prefix">求和</span><span class="sum-value">{{ display(row,field) }}</span></span></span>
       <div v-else-if="field.prop==='__actions'" class="row-actions">
@@ -127,7 +127,9 @@ import ColumnSettings from '../components/ColumnSettings.vue';
 import {readPreference,writePreference,normalizeColumns,selectedColumns} from '../components/preferences';
 import {businessConfig} from './config';
 import type {BusinessField} from './config';
-import {gridColumnWidth,canSumColumn,sumRowValues,formatNumericColumn} from '../components/columns';
+import {gridColumnWidth,canSumColumn,sumRowValues,formatNumericColumn,formatDateColumn,columnFormatKind} from '../components/columns';
+import type {ColumnFormat} from '../components/columns';
+import ColumnFormatPanel from '../components/ColumnFormatPanel.vue';
 import AttachmentUpload from '../components/AttachmentUpload.vue';
 import {attachmentFiles} from '../components/attachmentFiles';
 import ReferencePicker from './ReferencePicker.vue';
@@ -265,7 +267,7 @@ const visibleColumns=computed(()=>{const columns=selectedColumns(columnState.val
 /** 视图快照 key：列设置/分组/排序变化时重建表格。
  *  ⚠️ 不要把 draftCount 放进来——草稿行出现会重建整个 el-table，把正在上传的单元格组件卸载，
  *  Vue 会丢弃已卸载实例的 emit（丢图），并且表格滚动位置会被重置到顶部。操作列由 visibleColumns 动态增删。 */
-const tableKey=computed(()=>JSON.stringify([columnState.value,activeColumns.value.map(f=>f.prop),groups.value,sorts.value]));
+const tableKey=computed(()=>JSON.stringify([columnState.value.order,columnState.value.hidden,columnState.value.fixed,activeColumns.value.map(f=>f.prop),groups.value,sorts.value]));
 const defaultSort=computed(()=>sorts.value.length?{prop:sorts.value[0].field,order:sorts.value[0].desc===false?'ascending' as const:'descending' as const}:{prop:'',order:null});
 const allFilterFields=computed(()=>config.columns.filter(field=>!removedFields.value.includes(field.prop)&&!field.attachment&&!field.multiple));
 /** 选了具体店铺时，店铺已由顶部全局选择器限定，筛选面板里就不再重复提供该列；选「全部」时恢复。 */
@@ -400,9 +402,17 @@ const summaryMethod=computed(()=>{
  });
 });
 function rowKey(row:BusinessRow){return String(row.__key??row.id);}
-function display(row:BusinessRow,field:BusinessField){let v=row[field.prop];if(field.reference){v=row[field.prop+'Label']||v;if(Array.isArray(v))return v.length?v.join('、'):'—';}if(v===null||v===undefined||v==='')return '—';if(field.customId)return String(v);if(field.numeric&&!field.reference)return formatNumericColumn(v,field);return String(v);}
+function display(row:BusinessRow,field:BusinessField){let v=row[field.prop];if(field.reference){v=row[field.prop+'Label']||v;if(Array.isArray(v))return v.length?v.join('、'):'—';}if(v===null||v===undefined||v==='')return '—';if(field.customId)return String(v);if(field.numeric&&!field.reference)return formatNumericColumn(v,field);if(field.format?.date)return formatDateColumn(v,field);return String(v);}
 const formRef=ref<FormInstance>(),dialogOpen=ref(false),saving=ref(false),editing=ref(false);const form=ref<BusinessRow>({});
 const columnMenu=ref<{x:number;y:number;field:BusinessField}|null>(null);
+/** 表头字段名可点：弹出「显示格式」面板（文本列 disabled，不弹）。 */
+function formatKindOf(field:BusinessField){return columnFormatKind(field);}
+function applyColumnFormat(value:ColumnFormat|undefined,field:BusinessField){
+ if(!field)return;
+ const formats={...(columnState.value.formats||{})};
+ if(value&&Object.keys(value).length)formats[field.prop]=value;else delete formats[field.prop];
+ columnState.value=normalizeColumns({...columnState.value,formats},allColumns.value);
+}
 const customColumnOpen=ref(false),customColumnSaving=ref(false),customColumnName=ref(''),customColumnType=ref<'text'|'number'>('text');
 const customColumnAnchor=ref<{prop:string;side:'before'|'after'}|null>(null);
 const customEdit=ref<{rowId:string;fieldId:number;value:string}|null>(null),customSaving=ref(false);
@@ -624,6 +634,11 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();seedFromViewCache();vo
 .view-refreshing-dot{display:inline-block;width:9px;height:9px;border:1.5px solid var(--el-color-primary);border-top-color:transparent;border-radius:50%;animation:view-refreshing-spin .7s linear infinite}
 @keyframes view-refreshing-spin{to{transform:rotate(360deg)}}
 .business-view :deep(.ozon-data-grid .caret-wrapper){display:none}
+/* 表头字段名可点：弹「显示格式」面板（可设格式的列才给 pointer 与悬停色）。 */
+.business-view .field-heading{cursor:pointer;user-select:none}
+.business-view .field-heading:not(.is-formatable){cursor:default}
+.business-view .field-heading.is-formatable:hover{color:var(--el-color-primary)}
+.business-view .field-format-dot{display:inline-block;width:5px;height:5px;margin-left:4px;border-radius:50%;background:var(--el-color-primary);vertical-align:middle}
 /* 数据加载中的表格骨架：没有数据可显示时，用它替代原来的「整表白底遮罩 + 中间一个小转圈」。
    实测原来的遮罩在浅色主题下等于给整块表格铺白（点击到遮罩淡入之间还有 ~190ms 空档），
    看起来就是「页面空白」。骨架保留表头，让人一眼看出切到了哪个视图、正在装数据。

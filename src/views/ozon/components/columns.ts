@@ -1,4 +1,37 @@
-export interface ReportColumn { prop: string; label: string; width: number; decimal?: boolean; precision?: number; numeric?: boolean; attachment?: boolean; fixed?: 'left' | 'right' }
+/**
+ * 列显示格式：用户在表头面板里设置，随视图一起保存（存进 ColumnPreference.formats）。
+ * 只覆盖「显示」，不改数据本身，也不影响筛选/排序/汇总。
+ */
+export interface ColumnFormat {
+  /** 日期类列：`date` = 只显示年月日，`datetime` = 年月日 时分秒。 */
+  date?: 'date' | 'datetime';
+  /** 数字类列：显示的小数位数（0 = 只显示整数）。 */
+  digits?: number;
+}
+
+export interface ReportColumn {
+  prop: string;
+  label: string;
+  width: number;
+  decimal?: boolean;
+  precision?: number;
+  numeric?: boolean;
+  attachment?: boolean;
+  fixed?: 'left' | 'right';
+  format?: ColumnFormat;
+}
+
+/**
+ * 这一列能设置哪种格式 —— 决定表头面板给出哪些选项。
+ * ⚠️ 这里只是**入口的启发式**：日期判定靠字段名/中文名（业务表 config 里没有统一的 date 标记，
+ * 而报表页只有 prop/label）。判错的代价很小：真设了格式后 formatDateColumn 解析不出来会原样返回。
+ */
+export function columnFormatKind(column: ReportColumn): 'date' | 'number' | 'text' {
+  if (column.attachment || column.prop.startsWith('__')) return 'text';
+  if (column.numeric && !column.reference) return 'number';
+  if (/at$|date$|time$|month$/i.test(column.prop) || /日期|时间|月份/.test(column.label)) return 'date';
+  return 'text';
+}
 
 /** 仅汇总可加的数量和金额；编号、单价、均值和比率没有求和意义。 */
 export function canSumColumn(column: ReportColumn): boolean {
@@ -42,7 +75,9 @@ export function formatNumericColumn(value: unknown, column: ReportColumn): strin
   if (!Number.isFinite(number)) return String(value);
   const label = column.label;
   let digits: number;
-  if (/数量|总数|件数|箱数|记录数|字节/.test(label)) digits = 0;
+  // 表头格式面板里设过就以它为准（digits 0 = 只显示整数）；没设过才按字段含义猜。
+  if (column.format?.digits !== undefined) digits = column.format.digits;
+  else if (/数量|总数|件数|箱数|记录数|字节/.test(label)) digits = 0;
   else if (/体积/.test(label)) digits = column.precision ?? 4;
   else if (/重量|箱重|重\/kg/.test(label)) digits = column.precision ?? 3;
   else if (column.precision !== undefined) digits = column.precision;
@@ -51,6 +86,26 @@ export function formatNumericColumn(value: unknown, column: ReportColumn): strin
   else digits = 0;
   digits = Math.min(Math.max(digits, 0), 6);
   return numericFormatter(digits).format(number);
+}
+
+/**
+ * 日期列的显示格式（表头面板里设置）。
+ * ⚠️ **没设置格式时原样返回** —— 不动既有默认外观，只有用户显式选过才变。
+ * 只认 `YYYY-MM-DD[ T]HH:mm[:ss]` 这种形态；解析不出来（如「08:00-12:00」这种时间段文本）也原样返回。
+ */
+export function formatDateColumn(value: unknown, column: ReportColumn): string {
+  const text = String(value);
+  const mode = column.format?.date;
+  if (!mode) return text;
+  // 兼容 YYYY-MM（报表「统计月份」只到月）/ YYYY-MM-DD / YYYY-MM-DD HH:mm[:ss]
+  const match = /^(\d{4})-(\d{2})(?:-(\d{2}))?(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(text);
+  if (!match) return text;
+  const day = match[3] ? `${match[1]}-${match[2]}-${match[3]}` : `${match[1]}-${match[2]}`;
+  if (mode === 'date') return day;
+  // 选「年月日 时分秒」但数据粒度更粗时补齐（月 → 该月 1 日零点），否则两种格式看起来没区别。
+  const fullDay = match[3] ? day : `${day}-01`;
+  if (match[4] === undefined) return `${fullDay} 00:00:00`;
+  return `${fullDay} ${match[4]}:${match[5]}:${match[6] ?? '00'}`;
 }
 
 /** 多维表格风格的列宽：短数值列紧凑，长字段保留可读空间。 */

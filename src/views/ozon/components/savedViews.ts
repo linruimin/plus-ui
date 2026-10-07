@@ -43,6 +43,9 @@ export function useSavedViews(key: string, defaults: SavedView[], capture: () =>
       if (!rev) continue;
       const snap = snapshots.value[view.id];
       if (!isObject(snap) || snap.rev === rev) continue;
+      // rev 缺失 = 历史版本用 capture() 覆盖快照时丢掉的（见 saveCurrent）。这种情况快照里的列设置
+      // 才是用户最新的，只补版本号、**不要**用预设覆盖，否则每刷新一次列设置就被重置一次。
+      if (snap.rev === undefined || snap.rev === null) { snap.rev = rev; migrated = true; continue; }
       if (view.snapshot.columns !== undefined) snap.columns = clone(view.snapshot.columns);
       const presetQuery = view.snapshot.query;
       if (isObject(presetQuery) && Array.isArray(presetQuery.conditions)) {
@@ -83,7 +86,14 @@ export function useSavedViews(key: string, defaults: SavedView[], capture: () =>
   }
   function saveCurrent() {
     if (restoring) return;
-    snapshots.value[restoredId] = clone(capture()); persist();
+    const previous = snapshots.value[restoredId];
+    const next = clone(capture());
+    // capture() 只产出「配置内容」，不含预设版本号 rev。若把它丢掉，下次页面加载时下面的 rev 迁移
+    // 会认为快照是旧版本，把 columns 整个覆盖回预设 —— 用户改过的列顺序/隐藏/显示格式全被重置。
+    // （2026-10-07 修：实测「表头设了数字精度 → 刷新就没了」就是它引起的。）
+    if (isObject(previous) && previous.rev !== undefined) next.rev = previous.rev;
+    snapshots.value[restoredId] = next;
+    persist();
   }
   function restore() {
     restoring = true;
