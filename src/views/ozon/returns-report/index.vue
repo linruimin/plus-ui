@@ -167,7 +167,7 @@ const SLOT_WIDTH = 62;
 /** 产品图 x 轴品名的折行字数。 */
 const NAME_WRAP = 5;
 /** 退货主题色（橙，负面事件），两个图保持一致。 */
-const BAR_COLOR = '#e6a23c';
+const BAR_COLOR = '#409eff';
 
 const shopStore = useOzonShopStore();
 const chartData = ref<OzonReturnsChartVO>();
@@ -575,6 +575,6 @@ onBeforeUnmount(() => {
 .detail-name { font-size: 14px; font-weight: 600; color: var(--el-text-color-primary); }
 .detail-sub { margin-top: 4px; font-size: 12px; color: var(--el-text-color-secondary); }
 .detail-stats { display: flex; align-items: center; gap: 14px; flex: none; font-size: 12px; color: var(--el-text-color-secondary); }
-.detail-stats b { font-size: 14px; color: var(--el-color-warning); }
+.detail-stats b { font-size: 14px; color: var(--el-color-primary); }
 .detail-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; }
 </style>
