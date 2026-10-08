@@ -70,28 +70,23 @@
         border
         height="460"
         :empty-text="detailLoading ? '明细加载中…' : '没有符合条件的交货明细'"
+        @sort-change="onDetailSortChange"
       >
         <el-table-column type="index" label="#" width="46" align="center" :index="detailIndex" />
-        <el-table-column prop="applicationNo" label="交货申请编号" width="124" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="84" />
-        <el-table-column prop="deliveryType" label="配送类型" width="88" show-overflow-tooltip />
-        <el-table-column prop="shipmentDate" label="发运日期" width="96" />
-        <el-table-column prop="shipmentTime" label="发运时间段" width="100" />
-        <el-table-column prop="completionDate" label="完成日期" width="96" />
-        <el-table-column prop="deliveryId" label="子交货ID" width="110" show-overflow-tooltip />
-        <el-table-column prop="itemCode" label="ItemCode" width="112" show-overflow-tooltip />
-        <el-table-column prop="sku" label="SKU" width="130" show-overflow-tooltip />
-        <el-table-column prop="quantity" label="数量" width="76" align="right">
+        <el-table-column prop="applicationNo" label="交货申请编号" width="138" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="88" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="deliveryType" label="配送类型" width="100" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="shipmentDate" label="发运日期" width="104" sortable="custom" />
+        <el-table-column prop="shipmentTime" label="发运时间段" width="112" sortable="custom" />
+        <el-table-column prop="completionDate" label="完成日期" width="104" sortable="custom" />
+        <el-table-column prop="deliveryId" label="子交货ID" width="116" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="itemCode" label="ItemCode" width="112" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="sku" label="SKU" width="130" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="quantity" label="数量" width="80" align="right" sortable="custom">
           <template #default="{ row }">{{ amount(Number(row.quantity) || 0) }}</template>
         </el-table-column>
-        <el-table-column prop="storageCluster" label="存储集群" min-width="110" show-overflow-tooltip />
-        <el-table-column prop="dispatchPoint" label="发运点" min-width="100" show-overflow-tooltip />
-        <el-table-column label="详情" width="62" align="center">
-          <template #default="{ row }">
-            <el-link v-if="row.ozonOrderUrl" type="primary" :href="row.ozonOrderUrl" target="_blank" rel="noopener">打开</el-link>
-            <span v-else>—</span>
-          </template>
-        </el-table-column>
+        <el-table-column prop="storageCluster" label="存储集群" min-width="110" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="dispatchPoint" label="发运点" min-width="100" sortable="custom" show-overflow-tooltip />
       </el-table>
       <div class="detail-foot">
         <span class="record-count">
@@ -126,6 +121,21 @@ echarts.use([BarChart, GridComponent, TooltipComponent, AriaComponent, CanvasRen
 
 /** 交货申请的状态取值，与「0.交货申请明细」的筛选口径一致。 */
 const STATUS_OPTIONS = ['已完成', '已逾期', '在发运点', '已准备发运', '已取消'];
+/** 明细表的排序口径：数字列按数值、日期列按日期（库内是 DD.MM.YYYY）、其余按中文文本。 */
+const DETAIL_SORT_KIND: Record<string, 'number' | 'date' | 'text'> = {
+  applicationNo: 'number',
+  status: 'text',
+  deliveryType: 'text',
+  shipmentDate: 'date',
+  shipmentTime: 'text',
+  completionDate: 'date',
+  deliveryId: 'number',
+  itemCode: 'text',
+  sku: 'text',
+  quantity: 'number',
+  storageCluster: 'text',
+  dispatchPoint: 'text'
+};
 /** 明细弹窗每页行数（前端分页）。 */
 const DETAIL_PAGE_SIZE = 20;
 /** x 轴每个产品占用的最小宽度，保证图片与品名不被挤在一起。 */
@@ -154,6 +164,8 @@ const detailRows = ref<OzonSupplyReportVO[]>([]);
 const detailLoading = ref(false);
 const detailError = ref('');
 const detailPage = ref(1);
+const detailSortProp = ref('');
+const detailSortOrder = ref<'ascending' | 'descending' | ''>('');
 let detailVersion = 0;
 
 /** 柱子的横向顺序：默认沿用后端的交货数量倒序。 */
@@ -175,9 +187,31 @@ const detailImage = computed(() => (detailProduct.value ? imageUrl(detailProduct
 const detailTitle = computed(() => '交货明细 · ' + detailName.value);
 const detailTotal = computed(() => detailRows.value.reduce((sum, row) => sum + rowQuantity(row), 0));
 const detailOrderCount = computed(() => new Set(detailRows.value.map(row => row.orderId || '')).size);
+/**
+ * 明细行排序结果。前端对**整份**明细排序（而不是只排当前页），所以分页数字与「合计」不受影响。
+ * 空值（未维护完成日期、单子交货的空子交货ID）一律排到最后，与后端 `ORDER BY ... DESC` 的 NULL 行为一致。
+ */
+const detailSortedRows = computed(() => {
+  const prop = detailSortProp.value;
+  if (!prop) return detailRows.value;
+  const kind = DETAIL_SORT_KIND[prop] ?? 'text';
+  const direction = detailSortOrder.value === 'descending' ? -1 : 1;
+  return detailRows.value
+    .map(row => ({ row, key: detailSortKey(row, prop, kind) }))
+    .sort((left, right) => {
+      if (left.key === null || right.key === null) {
+        if (left.key === null && right.key === null) return 0;
+        return left.key === null ? 1 : -1;
+      }
+      const diff =
+        kind === 'text' ? String(left.key).localeCompare(String(right.key), 'zh-Hans-CN') : Number(left.key) - Number(right.key);
+      return diff * direction;
+    })
+    .map(entry => entry.row);
+});
 const detailPageRows = computed(() => {
   const start = (detailPage.value - 1) * DETAIL_PAGE_SIZE;
-  return detailRows.value.slice(start, start + DETAIL_PAGE_SIZE);
+  return detailSortedRows.value.slice(start, start + DETAIL_PAGE_SIZE);
 });
 const detailPageTotal = computed(() => detailPageRows.value.reduce((sum, row) => sum + rowQuantity(row), 0));
 
@@ -212,6 +246,28 @@ function wrapName(name: string) {
 }
 function detailIndex(index: number) {
   return (detailPage.value - 1) * DETAIL_PAGE_SIZE + index + 1;
+}
+/** 排序键；返回 null 表示该行此列为空（排序时恒放最后）。 */
+function detailSortKey(row: OzonSupplyReportVO, prop: string, kind: 'number' | 'date' | 'text'): number | string | null {
+  const raw = (row as unknown as Record<string, unknown>)[prop];
+  const text = String(raw ?? '').trim();
+  if (!text) return null;
+  if (kind === 'date') {
+    // 库内日期是 DD.MM.YYYY 文本，直接按字符串比会错序 → 转成 YYYYMMDD 数值再比。
+    const match = /^(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(text);
+    return match ? Number(match[3] + match[2].padStart(2, '0') + match[1].padStart(2, '0')) : null;
+  }
+  if (kind === 'number') {
+    const value = Number(text);
+    return Number.isFinite(value) ? value : text;
+  }
+  return text;
+}
+/** 明细表头排序：排完整份明细后回到第 1 页。 */
+function onDetailSortChange({ prop, order }: { prop: string; order: string | null }) {
+  detailSortProp.value = order ? prop : '';
+  detailSortOrder.value = order === 'ascending' ? 'ascending' : order === 'descending' ? 'descending' : '';
+  detailPage.value = 1;
 }
 function tooltip(params: CallbackDataParams | CallbackDataParams[]) {
   const point = Array.isArray(params) ? params[0] : params;
