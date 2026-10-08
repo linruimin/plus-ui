@@ -23,20 +23,90 @@
         </div>
       </template>
       <p class="description">
-        一个柱子代表一个产品（按「卖家货号」归并），柱长 = 该产品的交货数量合计、柱端数字为件数；状态筛选不影响已归并的产品，
-        只改变参与合计的申请。y 轴标签是产品货品图片与品名，图片取自产品库「货品图片」；未维护图片的产品只显示品名，鼠标悬停可看货号与申请数。
+        一个柱子代表一个产品（按「卖家货号」归并），柱高 = 该产品的交货数量合计、柱顶数字为件数。x 轴标签是产品货品图片与品名，
+        图片取自产品库「货品图片」；未维护图片的产品只显示品名。鼠标悬停可看货号与申请数，<b>点击柱子可展开该产品的交货申请明细</b>。
       </p>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" class="notice" />
       <el-empty v-else-if="!loading && !items.length" description="没有符合条件的交货记录" />
-      <div
-        v-show="!error && items.length"
-        ref="chartElement"
-        class="supply-chart"
-        :style="{ height: chartHeight + 'px' }"
-        role="img"
-        :aria-label="chartLabel"
-      />
+      <div v-show="!error && items.length" class="chart-scroll">
+        <div
+          ref="chartElement"
+          class="supply-chart"
+          :style="{ height: chartHeight + 'px', minWidth: chartWidth + 'px' }"
+          role="img"
+          :aria-label="chartLabel"
+        />
+      </div>
     </el-card>
+
+    <el-dialog
+      v-model="detailVisible"
+      :title="detailTitle"
+      width="94%"
+      top="5vh"
+      append-to-body
+      class="detail-dialog"
+    >
+      <div class="detail-head">
+        <img v-if="detailImage" class="detail-thumb" :src="detailImage" alt="货品图片" />
+        <div class="detail-ident">
+          <div class="detail-name">{{ detailName }}</div>
+          <div class="detail-sub">
+            卖家货号：{{ detailProduct?.sku || '—' }} · ItemCode：{{ detailProduct?.itemCode || '—' }}
+            <template v-if="status"> · 状态：{{ status }}</template>
+          </div>
+        </div>
+        <div class="detail-stats">
+          <span>交货数量 <b>{{ amount(detailTotal) }}</b> 件</span>
+          <span>明细 <b>{{ detailRows.length }}</b> 行</span>
+          <span>申请 <b>{{ detailOrderCount }}</b> 个</span>
+        </div>
+      </div>
+      <el-alert v-if="detailError" :title="detailError" type="error" show-icon :closable="false" class="notice" />
+      <el-table
+        v-loading="detailLoading"
+        :data="detailPageRows"
+        size="small"
+        border
+        height="460"
+        :empty-text="detailLoading ? '明细加载中…' : '没有符合条件的交货明细'"
+      >
+        <el-table-column type="index" label="#" width="46" align="center" :index="detailIndex" />
+        <el-table-column prop="applicationNo" label="交货申请编号" width="124" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="84" />
+        <el-table-column prop="deliveryType" label="配送类型" width="88" show-overflow-tooltip />
+        <el-table-column prop="shipmentDate" label="发运日期" width="96" />
+        <el-table-column prop="shipmentTime" label="发运时间段" width="100" />
+        <el-table-column prop="completionDate" label="完成日期" width="96" />
+        <el-table-column prop="deliveryId" label="子交货ID" width="110" show-overflow-tooltip />
+        <el-table-column prop="itemCode" label="ItemCode" width="112" show-overflow-tooltip />
+        <el-table-column prop="sku" label="SKU" width="130" show-overflow-tooltip />
+        <el-table-column prop="quantity" label="数量" width="76" align="right">
+          <template #default="{ row }">{{ amount(Number(row.quantity) || 0) }}</template>
+        </el-table-column>
+        <el-table-column prop="storageCluster" label="存储集群" min-width="110" show-overflow-tooltip />
+        <el-table-column prop="dispatchPoint" label="发运点" min-width="100" show-overflow-tooltip />
+        <el-table-column label="详情" width="62" align="center">
+          <template #default="{ row }">
+            <el-link v-if="row.ozonOrderUrl" type="primary" :href="row.ozonOrderUrl" target="_blank" rel="noopener">打开</el-link>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="detail-foot">
+        <span class="record-count">
+          本页 {{ amount(detailPageTotal) }} 件 · 合计 {{ amount(detailTotal) }} 件
+        </span>
+        <el-pagination
+          v-model:current-page="detailPage"
+          :page-size="DETAIL_PAGE_SIZE"
+          :total="detailRows.length"
+          layout="prev, pager, next"
+          size="small"
+          background
+        />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -47,8 +117,8 @@ import { BarChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent, AriaComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { CallbackDataParams } from 'echarts/types/dist/shared';
-import { listSupplyStats, scopeReportQuery } from '@/api/ozon/report';
-import type { OzonSupplyStatsVO, ReportQuery } from '@/api/ozon/report/types';
+import { listSupplyProductRows, listSupplyStats, scopeReportQuery } from '@/api/ozon/report';
+import type { OzonSupplyReportVO, OzonSupplyStatsVO, ReportQuery } from '@/api/ozon/report/types';
 import { useOzonShopStore } from '@/store/modules/ozonShop';
 import { attachmentFiles } from '../components/attachmentFiles';
 
@@ -56,12 +126,19 @@ echarts.use([BarChart, GridComponent, TooltipComponent, AriaComponent, CanvasRen
 
 /** 交货申请的状态取值，与「0.交货申请明细」的筛选口径一致。 */
 const STATUS_OPTIONS = ['已完成', '已逾期', '在发运点', '已准备发运', '已取消'];
+/** 明细弹窗每页行数（前端分页）。 */
+const DETAIL_PAGE_SIZE = 20;
+/** x 轴每个产品占用的最小宽度，保证图片与品名不被挤在一起。 */
+const SLOT_WIDTH = 62;
+/** x 轴品名的折行字数。 */
+const NAME_WRAP = 5;
 
 const shopStore = useOzonShopStore();
 const items = ref<OzonSupplyStatsVO[]>([]);
 const loading = ref(false);
 const error = ref('');
-const status = ref('');
+// 默认只看已完成的交货申请。
+const status = ref('已完成');
 const sortMode = ref<'quantity' | 'name'>('quantity');
 const showImage = ref(true);
 const chartElement = ref<HTMLElement>();
@@ -71,7 +148,15 @@ let requestVersion = 0;
 let disposed = false;
 let active = true;
 
-/** 柱子的纵向顺序：默认沿用后端的交货数量倒序。 */
+const detailVisible = ref(false);
+const detailProduct = ref<OzonSupplyStatsVO>();
+const detailRows = ref<OzonSupplyReportVO[]>([]);
+const detailLoading = ref(false);
+const detailError = ref('');
+const detailPage = ref(1);
+let detailVersion = 0;
+
+/** 柱子的横向顺序：默认沿用后端的交货数量倒序。 */
 const sorted = computed(() => {
   const rows = [...items.value];
   if (sortMode.value === 'name') rows.sort((a, b) => productName(a).localeCompare(productName(b), 'zh-Hans-CN'));
@@ -79,13 +164,29 @@ const sorted = computed(() => {
 });
 const totalQuantity = computed(() => sorted.value.reduce((sum, item) => sum + quantity(item), 0));
 const totalQuantityText = computed(() => totalQuantity.value.toLocaleString('zh-CN'));
-const chartHeight = computed(() => Math.max(320, sorted.value.length * 30 + 90));
+const chartHeight = computed(() => 400);
+const chartWidth = computed(() => sorted.value.length * SLOT_WIDTH);
 const chartLabel = computed(
-  () => '各产品交货数量条形图，共 ' + sorted.value.length + ' 个产品，合计 ' + totalQuantityText.value + ' 件'
+  () => '各产品交货数量柱状图，共 ' + sorted.value.length + ' 个产品，合计 ' + totalQuantityText.value + ' 件'
 );
+
+const detailName = computed(() => (detailProduct.value ? productName(detailProduct.value) : ''));
+const detailImage = computed(() => (detailProduct.value ? imageUrl(detailProduct.value) : ''));
+const detailTitle = computed(() => '交货明细 · ' + detailName.value);
+const detailTotal = computed(() => detailRows.value.reduce((sum, row) => sum + rowQuantity(row), 0));
+const detailOrderCount = computed(() => new Set(detailRows.value.map(row => row.orderId || '')).size);
+const detailPageRows = computed(() => {
+  const start = (detailPage.value - 1) * DETAIL_PAGE_SIZE;
+  return detailRows.value.slice(start, start + DETAIL_PAGE_SIZE);
+});
+const detailPageTotal = computed(() => detailPageRows.value.reduce((sum, row) => sum + rowQuantity(row), 0));
 
 function quantity(item: OzonSupplyStatsVO) {
   const value = Number(item.totalQuantity);
+  return Number.isFinite(value) ? value : 0;
+}
+function rowQuantity(row: OzonSupplyReportVO) {
+  const value = Number(row.quantity);
   return Number.isFinite(value) ? value : 0;
 }
 function productName(item: OzonSupplyStatsVO) {
@@ -101,6 +202,17 @@ function imageUrl(item: OzonSupplyStatsVO) {
 function amount(value: number) {
   return value.toLocaleString('zh-CN');
 }
+/** x 轴标签按固定字数折行，避免相邻产品的品名互相压字。 */
+function wrapName(name: string) {
+  const chars = Array.from(name);
+  if (chars.length <= NAME_WRAP) return name;
+  const lines: string[] = [];
+  for (let index = 0; index < chars.length; index += NAME_WRAP) lines.push(chars.slice(index, index + NAME_WRAP).join(''));
+  return lines.join('\n');
+}
+function detailIndex(index: number) {
+  return (detailPage.value - 1) * DETAIL_PAGE_SIZE + index + 1;
+}
 function tooltip(params: CallbackDataParams | CallbackDataParams[]) {
   const point = Array.isArray(params) ? params[0] : params;
   const item = sorted.value[point?.dataIndex ?? -1];
@@ -110,7 +222,8 @@ function tooltip(params: CallbackDataParams | CallbackDataParams[]) {
     productName(item) + (code ? '（' + code + '）' : ''),
     '交货数量：' + amount(quantity(item)) + ' 件',
     '交货申请数：' + Number(item.orderCount || 0) + ' 个',
-    'ItemCode：' + (item.itemCode || '—')
+    'ItemCode：' + (item.itemCode || '—'),
+    '点击查看交货明细'
   ].join('\n');
 }
 
@@ -143,52 +256,82 @@ async function renderChart() {
   const rows = sorted.value;
   const useImage = showImage.value;
   const images = rows.map(item => (useImage ? imageUrl(item) : ''));
-  // 每个产品一个富文本样式，用 backgroundColor.image 把货品图片画在 y 轴标签里。
-  const rich: Record<string, Record<string, unknown>> = {};
+  // 每个产品一个富文本样式，用 backgroundColor.image 把货品图片画在 x 轴标签里（图在上、品名在下）。
+  const rich: Record<string, Record<string, unknown>> = { name: { fontSize: 11, lineHeight: 14, align: 'center' } };
   images.forEach((url, index) => {
     if (url) rich['p' + index] = { width: 22, height: 22, borderRadius: 3, align: 'center', backgroundColor: { image: url } };
   });
-  if (!chart) chart = echarts.init(chartElement.value);
+  if (!chart) {
+    chart = echarts.init(chartElement.value);
+    chart.on('click', (params: CallbackDataParams) => {
+      const item = sorted.value[params.dataIndex as number];
+      if (item) void openDetail(item);
+    });
+  }
   chart.setOption(
     {
       aria: { enabled: true },
       animation: false,
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, renderMode: 'richText', confine: true, formatter: tooltip },
-      grid: { top: 12, left: 8, right: 78, bottom: 30, containLabel: true },
+      grid: { top: 34, left: 8, right: 16, bottom: 8, containLabel: true },
       xAxis: {
+        type: 'category',
+        data: rows.map(item => wrapName(productName(item))),
+        axisTick: { show: false },
+        axisLabel: {
+          interval: 0,
+          margin: 8,
+          formatter: (value: string, index: number) => (images[index] ? '{p' + index + '|}\n' : '') + '{name|' + value + '}',
+          rich
+        }
+      },
+      yAxis: {
         type: 'value',
         name: '交货数量（件）',
-        nameLocation: 'middle',
-        nameGap: 26,
+        nameLocation: 'end',
+        nameGap: 14,
+        nameTextStyle: { fontSize: 12 },
         minInterval: 1,
         splitLine: { lineStyle: { type: 'dashed' } },
         axisLabel: { formatter: (value: number) => amount(value) }
-      },
-      yAxis: {
-        type: 'category',
-        inverse: true,
-        data: rows.map(item => productName(item)),
-        axisTick: { show: false },
-        axisLine: { show: false },
-        axisLabel: {
-          margin: 10,
-          formatter: (value: string, index: number) => (images[index] ? '{p' + index + '|}' + '  ' : '') + value,
-          rich
-        }
       },
       series: [
         {
           type: 'bar',
           data: rows.map(item => quantity(item)),
-          barMaxWidth: 20,
-          itemStyle: { color: '#409eff', borderRadius: [0, 3, 3, 0] },
-          label: { show: true, position: 'right', distance: 6, fontSize: 12, formatter: (params: CallbackDataParams) => amount(Number(params.value)) }
+          barMaxWidth: 28,
+          cursor: 'pointer',
+          itemStyle: { color: '#409eff', borderRadius: [3, 3, 0, 0] },
+          label: { show: true, position: 'top', distance: 4, fontSize: 11, formatter: (params: CallbackDataParams) => amount(Number(params.value)) }
         }
       ]
     },
     { notMerge: true }
   );
   chart.resize();
+}
+
+/** 点击柱子：拉取该产品的交货申请明细，用表格展示。 */
+async function openDetail(item: OzonSupplyStatsVO) {
+  const version = ++detailVersion;
+  detailProduct.value = item;
+  detailVisible.value = true;
+  detailPage.value = 1;
+  detailRows.value = [];
+  detailError.value = '';
+  detailLoading.value = true;
+  try {
+    // 明细必须沿用图表的筛选口径，否则分页数字与柱高对不上。
+    const query: ReportQuery = { sku: item.sku || '' };
+    if (status.value) query.status = status.value;
+    const result = await listSupplyProductRows(scopeReportQuery(query, shopStore.selectedId));
+    if (version !== detailVersion || disposed) return;
+    detailRows.value = result.data ?? [];
+  } catch {
+    if (version === detailVersion && !disposed) detailError.value = '交货明细查询失败，请关闭弹窗后重试。';
+  } finally {
+    if (version === detailVersion && !disposed) detailLoading.value = false;
+  }
 }
 
 watch([sortMode, showImage], () => void renderChart());
@@ -212,6 +355,7 @@ onDeactivated(() => {
 onBeforeUnmount(() => {
   disposed = true;
   requestVersion++;
+  detailVersion++;
   observer?.disconnect();
   chart?.dispose();
   chart = undefined;
@@ -234,5 +378,14 @@ onBeforeUnmount(() => {
 .view-refreshing { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 20px; padding: 0 8px; border: 1px solid var(--el-border-color-lighter); border-radius: 4px; background: var(--el-bg-color-overlay); color: var(--el-text-color-secondary); font-size: 12px; line-height: 1; white-space: nowrap; }
 .view-refreshing-dot { display: inline-block; width: 9px; height: 9px; border: 1.5px solid var(--el-color-primary); border-top-color: transparent; border-radius: 50%; animation: view-refreshing-spin .7s linear infinite; }
 @keyframes view-refreshing-spin { to { transform: rotate(360deg); } }
+.chart-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }
 .supply-chart { width: 100%; }
+.detail-head { display: flex; align-items: center; gap: 12px; padding: 0 0 10px; }
+.detail-thumb { width: 48px; height: 48px; border: 1px solid var(--el-border-color-lighter); border-radius: 4px; object-fit: contain; flex: none; background: var(--el-fill-color-lighter); }
+.detail-ident { min-width: 0; flex: 1 1 auto; }
+.detail-name { font-size: 14px; font-weight: 600; color: var(--el-text-color-primary); }
+.detail-sub { margin-top: 4px; font-size: 12px; color: var(--el-text-color-secondary); }
+.detail-stats { display: flex; align-items: center; gap: 14px; flex: none; font-size: 12px; color: var(--el-text-color-secondary); }
+.detail-stats b { font-size: 14px; color: var(--el-color-primary); }
+.detail-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; }
 </style>

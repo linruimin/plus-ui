@@ -18,6 +18,8 @@ export interface ReportQuery extends PageQuery {
   accrualType?: string;
   applicationNo?: string;
   status?: string;
+  /** 卖家货号；交货报表下钻用，精确匹配 supply 表的 sku。 */
+  sku?: string;
   /** 全局店铺范围；仅订单费用明细（accruals）生效。 */
   scopeShopId?: string;
 }
@@ -92,7 +94,7 @@ export interface OzonSupplyReportVO extends ReportRow {
   attachmentJson: string | null;
 }
 
-/** 交货报表：按卖家货号归并的产品交货数量。 */
+/** 交货报表：按卖家货号归并的产品交货数量；点击柱子用 sku 下钻明细行。 */
 export interface OzonSupplyStatsVO {
   localProductName: string | null;
   sku: string | null;
