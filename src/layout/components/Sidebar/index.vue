@@ -1,6 +1,6 @@
 <template>
-  <div class="sidebar-shell" :class="{ 'has-logo': showLogo }" :style="menuStyle">
-    <logo v-if="showLogo" :collapse="isCollapse" />
+  <div class="sidebar-shell" :style="menuStyle">
+    <user-panel :collapse="isCollapse" @set-layout="emit('set-layout')" />
     <el-scrollbar :class="sideTheme" wrap-class="scrollbar-wrapper">
       <transition :enter-active-class="animateConfig.menuSearchAnimate.enter" mode="out-in">
         <el-menu
@@ -24,7 +24,7 @@ import animateConfig from '@/animate';
 import { useAppStore } from '@/store/modules/app';
 import { usePermissionStore } from '@/store/modules/permission';
 import { useSettingsStore } from '@/store/modules/settings';
-import Logo from './Logo.vue';
+import UserPanel from './UserPanel.vue';
 import SidebarItem from './SidebarItem.vue';
 
 const route = useRoute();
@@ -32,10 +32,11 @@ const appStore = useAppStore();
 const settingsStore = useSettingsStore();
 const permissionStore = usePermissionStore();
 const sidebarRouters = computed<RouteRecordRaw[]>(() => permissionStore.getSidebarRoutes());
-const showLogo = computed(() => settingsStore.sidebarLogo);
 const sideTheme = computed(() => settingsStore.sideTheme);
 const theme = computed(() => settingsStore.theme);
 const isCollapse = computed(() => !appStore.sidebar.opened);
+/** 「布局设置」入口随顶部导航条一起挪到了用户面板里，由 Layout 打开 Settings 抽屉。 */
+const emit = defineEmits<{ 'set-layout': [] }>();
 
 const activeMenu = computed(() => {
   const { meta, path } = route;

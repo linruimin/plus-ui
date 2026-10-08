@@ -1,13 +1,14 @@
 <template>
   <div :class="classObj" class="app-wrapper" :style="{ '--current-color': theme }">
     <div v-if="device === 'mobile' && sidebar.opened" class="drawer-bg" @click="handleClickOutside" />
-    <side-bar v-if="showSidebar" class="sidebar-container" />
+    <side-bar v-if="showSidebar" class="sidebar-container" @set-layout="setLayout" />
     <div :class="{ hasTagsView: needTagsView, sidebarHide: sidebar.hide }" class="main-container">
-      <div :class="{ 'fixed-header': fixedHeader }" class="layout-header">
-        <navbar @set-layout="setLayout" />
-        <tags-view v-if="needTagsView" />
+      <!-- 顶部导航条（面包屑 + 右侧图标）已按需求整行移除：用户面板挪到侧边栏顶部，
+           内容区直接顶到最上面。这一层现在只在需要标签栏的页面渲染（Ozon 页面全部隐藏标签栏）。 -->
+      <div v-if="needTagsView" :class="{ 'fixed-header': fixedHeader }" class="layout-header">
+        <tags-view />
       </div>
-      <app-main :class="{ 'with-fixed-header': fixedHeader, 'with-tags-view': needTagsView }" />
+      <app-main :class="{ 'with-tags-view': needTagsView, 'with-fixed-header': needTagsView && fixedHeader }" />
       <settings ref="settingRef" />
     </div>
   </div>
@@ -18,7 +19,7 @@ import { NavTypeEnum } from '@/enums/NavTypeEnum';
 import { useAppStore } from '@/store/modules/app';
 import { useSettingsStore } from '@/store/modules/settings';
 import { initMessageBox, initPush } from '@/utils/push';
-import { AppMain, Navbar, Settings, TagsView } from './components';
+import { AppMain, Settings, TagsView } from './components';
 import SideBar from './components/Sidebar/index.vue';
 
 const settingsStore = useSettingsStore();
@@ -27,6 +28,7 @@ const theme = computed(() => settingsStore.theme);
 const sidebar = computed(() => useAppStore().sidebar);
 const device = computed(() => useAppStore().device);
 const needTagsView = computed(() => settingsStore.tagsView && route.meta.hideTagsView !== true);
+// ⚠️ fixedHeader 现在只对标签栏生效（导航条已移除）：有标签栏时才需要固定/占位。
 const fixedHeader = computed(() => settingsStore.fixedHeader);
 const layout = computed(() => settingsStore.navType);
 
@@ -115,6 +117,7 @@ const setLayout = () => {
   background: transparent;
 }
 
+/* 现在只包裹标签栏（导航条已移除），固定时的占位高度见 AppMain.vue 的 .with-fixed-header。 */
 .fixed-header {
   position: fixed;
   top: 0;

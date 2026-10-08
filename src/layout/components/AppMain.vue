@@ -64,22 +64,24 @@ function addIframe() {
   }
 }
 
-.app-main:not(.with-fixed-header) {
-  min-height: calc(100vh - 64px);
+// 顶部导航条（原 64px = 导航条 52 + 上留白 12）已整行移除，内容区直接铺满视口；
+// 只有还带标签栏的页面（非 Ozon 页面）才减去标签栏那一行（12 上留白 + 38 标签高 = 50）。
+.app-main {
+  min-height: 100vh;
 }
 
-.app-main.with-tags-view:not(.with-fixed-header) {
-  min-height: calc(100vh - 105px);
+.app-main.with-tags-view {
+  min-height: calc(100vh - 50px);
 }
 
 .app-main.with-fixed-header {
-  padding-top: 76px;
-  min-height: calc(100vh - 76px);
+  padding-top: 50px;
+  min-height: calc(100vh - 50px);
 }
 
 .app-main.with-fixed-header.with-tags-view {
-  min-height: calc(100vh - 111px);
-  padding-top: 111px;
+  padding-top: 50px;
+  min-height: calc(100vh - 50px);
 }
 </style>
 <style lang="scss">
