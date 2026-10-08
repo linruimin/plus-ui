@@ -1,7 +1,7 @@
 import type { PageResult } from '@/api/types';
 import type { AxiosPromise } from '@/utils/api-types';
 import request from '@/utils/request';
-import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale, OzonSupplyStatsVO, OzonSupplyReportVO } from './types';
+import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale, OzonSupplyStatsVO, OzonSupplyReportVO, OzonReturnsChartVO, OzonReturnsRowVO } from './types';
 
 /** 查询已有 Ozon 报表。 */
 export function listReport(kind: ReportKind, query: ReportQuery): AxiosPromise<PageResult<ReportRow>> {
@@ -16,6 +16,16 @@ export function listSupplyStats(query: ReportQuery): AxiosPromise<OzonSupplyStat
 /** 交货报表下钻：某个卖家货号下的全部交货申请明细行。 */
 export function listSupplyProductRows(query: ReportQuery): AxiosPromise<OzonSupplyReportVO[]> {
   return request({ url: '/ozon/report/supply/product-rows', method: 'get', params: query });
+}
+
+/** 退货图表：按月趋势 + 按产品排行，一次查询保证口径一致。 */
+export function listReturnsChart(query: ReportQuery): AxiosPromise<OzonReturnsChartVO> {
+  return request({ url: '/ozon/report/returns/chart', method: 'get', params: query });
+}
+
+/** 退货图表下钻：某个卖家货号或某个月份下的全部退货明细行。 */
+export function listReturnsChartRows(query: ReportQuery): AxiosPromise<OzonReturnsRowVO[]> {
+  return request({ url: '/ozon/report/returns/product-rows', method: 'get', params: query });
 }
 
 /** 查询一个费用编号的所有正负原始明细。 */

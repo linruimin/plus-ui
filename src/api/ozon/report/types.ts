@@ -20,6 +20,10 @@ export interface ReportQuery extends PageQuery {
   status?: string;
   /** 卖家货号；交货报表下钻用，精确匹配 supply 表的 sku。 */
   sku?: string;
+  /** 退货月份（YYYY-MM）；退货图表按月筛选。 */
+  month?: string;
+  /** 卖家货号；退货图表下钻用，精确匹配退货表的 article_no。 */
+  articleNo?: string;
   /** 全局店铺范围；仅订单费用明细（accruals）生效。 */
   scopeShopId?: string;
 }
@@ -104,7 +108,63 @@ export interface OzonSupplyStatsVO {
   attachmentJson: string | null;
 }
 
-/** 当前筛选范围内的产品月度销售额。 */export interface ProductSalesTrend {
+/** 退货图表：单个月份的退货汇总。 */
+export interface OzonReturnsMonthVO {
+  month: string;
+  returnQty: number | string | null;
+  shipmentCount: number | string | null;
+}
+
+/** 退货图表：按卖家货号归并的产品退货汇总；点击柱子用 articleNo 下钻明细行。 */
+export interface OzonReturnsStatsVO {
+  localProductName: string | null;
+  articleNo: string | null;
+  sku: string | null;
+  shipmentCount: number | string | null;
+  returnQty: number | string | null;
+  attachmentJson: string | null;
+}
+
+/** 退货图表：一次查询返回的两个维度汇总。 */
+export interface OzonReturnsChartVO {
+  months: OzonReturnsMonthVO[];
+  products: OzonReturnsStatsVO[];
+}
+
+/** 退货图表下钻明细行：与「8.退货」业务视图同源的字段。 */
+export interface OzonReturnsRowVO extends ReportRow {
+  id: number | string | null;
+  shopId: number | string | null;
+  shopIdLabel: string | null;
+  fulfillmentScheme: string | null;
+  shipmentNo: string | null;
+  articleNo: string | null;
+  sku: string | null;
+  orderDate: string | null;
+  returnDate: string | null;
+  statusDate: string | null;
+  returnStatus: string | null;
+  returnReason: string | null;
+  buyerComment: string | null;
+  buyerType: string | null;
+  returnQty: number | string | null;
+  packageOpened: string | null;
+  destination: string | null;
+  storageAddress: string | null;
+  location: string | null;
+  storageDays: number | string | null;
+  returnBarcode: string | null;
+  storageFeeRub: number | string | null;
+  disposalFeeRub: number | string | null;
+  maxPriceRub: number | string | null;
+  productId: number | string | null;
+  productNo: number | string | null;
+  productName: string | null;
+  attachmentJson: string | null;
+}
+
+/** 当前筛选范围内的产品月度销售额。 */
+export interface ProductSalesTrend {
   productKey: string;
   productName: string;
   sellerSku?: string;
