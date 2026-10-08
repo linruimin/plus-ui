@@ -1,11 +1,16 @@
 import type { PageResult } from '@/api/types';
 import type { AxiosPromise } from '@/utils/api-types';
 import request from '@/utils/request';
-import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale } from './types';
+import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale, OzonSupplyStatsVO } from './types';
 
 /** 查询已有 Ozon 报表。 */
 export function listReport(kind: ReportKind, query: ReportQuery): AxiosPromise<PageResult<ReportRow>> {
   return request({ url: '/ozon/report/' + kind + '/list', method: 'get', params: query });
+}
+
+/** 交货报表：按产品汇总交货数量，不受分页影响。 */
+export function listSupplyStats(query: ReportQuery): AxiosPromise<OzonSupplyStatsVO[]> {
+  return request({ url: '/ozon/report/supply/stats', method: 'get', params: query });
 }
 
 /** 查询一个费用编号的所有正负原始明细。 */

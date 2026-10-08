@@ -92,6 +92,16 @@ export interface OzonSupplyReportVO extends ReportRow {
   attachmentJson: string | null;
 }
 
+/** 交货报表：按卖家货号归并的产品交货数量。 */
+export interface OzonSupplyStatsVO {
+  localProductName: string | null;
+  sku: string | null;
+  itemCode: string | null;
+  orderCount: number | string | null;
+  totalQuantity: number | string | null;
+  attachmentJson: string | null;
+}
+
 /** 当前筛选范围内的产品月度销售额。 */export interface ProductSalesTrend {
   productKey: string;
   productName: string;
