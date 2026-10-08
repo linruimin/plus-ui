@@ -1,19 +1,19 @@
 import type { PageResult } from '@/api/types';
 import type { AxiosPromise } from '@/utils/api-types';
 import request from '@/utils/request';
-import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale, OzonSupplyStatsVO, OzonSupplyReportVO, OzonReturnsChartVO, OzonReturnsRowVO } from './types';
+import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale, OzonSupplyChartVO, OzonSupplyReportVO, OzonReturnsChartVO, OzonReturnsRowVO } from './types';
 
 /** 查询已有 Ozon 报表。 */
 export function listReport(kind: ReportKind, query: ReportQuery): AxiosPromise<PageResult<ReportRow>> {
   return request({ url: '/ozon/report/' + kind + '/list', method: 'get', params: query });
 }
 
-/** 交货报表：按产品汇总交货数量，不受分页影响。 */
-export function listSupplyStats(query: ReportQuery): AxiosPromise<OzonSupplyStatsVO[]> {
-  return request({ url: '/ozon/report/supply/stats', method: 'get', params: query });
+/** 交货图表：按月趋势 + 按产品排行，一次查询保证口径一致。 */
+export function listSupplyChart(query: ReportQuery): AxiosPromise<OzonSupplyChartVO> {
+  return request({ url: '/ozon/report/supply/chart', method: 'get', params: query });
 }
 
-/** 交货报表下钻：某个卖家货号下的全部交货申请明细行。 */
+/** 交货图表下钻：某个卖家货号或某个月份下的全部交货申请明细行。 */
 export function listSupplyProductRows(query: ReportQuery): AxiosPromise<OzonSupplyReportVO[]> {
   return request({ url: '/ozon/report/supply/product-rows', method: 'get', params: query });
 }

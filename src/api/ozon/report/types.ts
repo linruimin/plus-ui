@@ -20,7 +20,7 @@ export interface ReportQuery extends PageQuery {
   status?: string;
   /** 卖家货号；交货报表下钻用，精确匹配 supply 表的 sku。 */
   sku?: string;
-  /** 退货月份（YYYY-MM）；退货图表按月筛选。 */
+  /** 报表月份（YYYY-MM）；退货图表 / 交货图表按月份筛选。 */
   month?: string;
   /** 卖家货号；退货图表下钻用，精确匹配退货表的 article_no。 */
   articleNo?: string;
@@ -98,7 +98,7 @@ export interface OzonSupplyReportVO extends ReportRow {
   attachmentJson: string | null;
 }
 
-/** 交货报表：按卖家货号归并的产品交货数量；点击柱子用 sku 下钻明细行。 */
+/** 交货图表：按卖家货号归并的产品交货数量；点击柱子用 sku 下钻明细行。 */
 export interface OzonSupplyStatsVO {
   localProductName: string | null;
   sku: string | null;
@@ -106,6 +106,19 @@ export interface OzonSupplyStatsVO {
   orderCount: number | string | null;
   totalQuantity: number | string | null;
   attachmentJson: string | null;
+}
+
+/** 交货图表：单个月份的交货汇总（归月口径＝明细完成日期）。 */
+export interface OzonSupplyMonthVO {
+  month: string;
+  totalQuantity: number | string | null;
+  orderCount: number | string | null;
+}
+
+/** 交货图表：一次查询返回的两个维度汇总。 */
+export interface OzonSupplyChartVO {
+  months: OzonSupplyMonthVO[];
+  products: OzonSupplyStatsVO[];
 }
 
 /** 退货图表：单个月份的退货汇总。 */

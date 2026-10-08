@@ -5,13 +5,19 @@
         <div class="table-toolbar">
           <div class="view-controls">
             <el-tag v-if="shopStore.selectedName" type="primary" size="small">{{ shopStore.selectedName }}</el-tag>
-            <span class="record-count">共 {{ items.length }} 个产品 · 交货 {{ totalQuantityText }} 件</span>
+            <span class="record-count">
+              共 {{ months.length }} 个月 · {{ items.length }} 个产品 · 交货 {{ totalQuantityText }} 件
+            </span>
             <span v-if="loading" class="view-refreshing" role="status"><i class="view-refreshing-dot"></i>数据更新中</span>
           </div>
           <div class="view-actions">
             <el-select v-model="status" placeholder="全部状态" class="status-select" aria-label="申请状态" @change="load">
               <el-option label="全部状态" value="" />
               <el-option v-for="option in STATUS_OPTIONS" :key="option" :label="option" :value="option" />
+            </el-select>
+            <el-select v-model="month" placeholder="全部月份" class="month-select" aria-label="交货月份" @change="load">
+              <el-option label="全部月份" value="" />
+              <el-option v-for="item in monthOptions" :key="item" :label="item" :value="item" />
             </el-select>
             <el-radio-group v-model="sortMode" size="small" aria-label="排序方式">
               <el-radio-button value="quantity">按交货数量</el-radio-button>
@@ -23,20 +29,39 @@
         </div>
       </template>
       <p class="description">
-        一个柱子代表一个产品（按「卖家货号」归并），柱高 = 该产品的交货数量合计、柱顶数字为件数。x 轴标签是产品货品图片与品名，
-        图片取自产品库「货品图片」；未维护图片的产品只显示品名。鼠标悬停可看货号与申请数，<b>点击柱子可展开该产品的交货申请明细</b>。
+        上图<b>按交货完成月份（按月统计）</b>汇总交货数量，下图按产品（按「卖家货号」归并）汇总，柱高 = 交货数量、柱顶数字为件数；
+        产品的 x 轴标签是货品图片与品名（图片取自产品库「货品图片」，未维护图片的产品只显示品名）。
+        「申请状态」筛选同时作用于两个图与下钻明细，「月份」筛选作用于按产品图与下钻明细；鼠标悬停可看货号与申请数，
+        <b>点击柱子可展开对应的交货申请明细</b>。归月口径取明细的「完成日期」，尚未完成的申请（在发运点 / 已准备发运 / 输入数据）没有完成日期，不参与按月统计。
       </p>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" class="notice" />
-      <el-empty v-else-if="!loading && !items.length" description="没有符合条件的交货记录" />
-      <div v-show="!error && items.length" class="chart-scroll">
-        <div
-          ref="chartElement"
-          class="supply-chart"
-          :style="{ height: chartHeight + 'px', minWidth: chartWidth + 'px' }"
-          role="img"
-          :aria-label="chartLabel"
-        />
-      </div>
+      <el-empty v-else-if="!loading && !months.length && !items.length" description="没有符合条件的交货记录" />
+      <template v-else>
+        <div class="section-title">按月趋势</div>
+        <div v-show="months.length" class="chart-scroll">
+          <div
+            ref="monthChartElement"
+            class="supply-month-chart"
+            :style="{ height: monthChartHeight + 'px', minWidth: monthChartWidth + 'px' }"
+            role="img"
+            :aria-label="monthChartLabel"
+          />
+        </div>
+        <el-empty v-if="!months.length && !loading" description="没有已完成的交货记录" :image-size="72" />
+        <template v-if="items.length">
+          <div class="section-title">按产品排行</div>
+          <div class="chart-scroll">
+            <div
+              ref="chartElement"
+              class="supply-chart"
+              :style="{ height: chartHeight + 'px', minWidth: chartWidth + 'px' }"
+              role="img"
+              :aria-label="chartLabel"
+            />
+          </div>
+        </template>
+        <el-empty v-else-if="!loading" description="当前月份没有交货记录" :image-size="72" />
+      </template>
     </el-card>
 
     <el-dialog
@@ -52,7 +77,10 @@
         <div class="detail-ident">
           <div class="detail-name">{{ detailName }}</div>
           <div class="detail-sub">
-            卖家货号：{{ detailProduct?.sku || '—' }} · ItemCode：{{ detailProduct?.itemCode || '—' }}
+            <template v-if="detailProduct">
+              卖家货号：{{ detailProduct.sku || '—' }} · ItemCode：{{ detailProduct.itemCode || '—' }}
+            </template>
+            <template v-else>完成月份：{{ detailMonth || '—' }}</template>
             <template v-if="status"> · 状态：{{ status }}</template>
           </div>
         </div>
@@ -112,15 +140,15 @@ import { BarChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent, AriaComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { CallbackDataParams } from 'echarts/types/dist/shared';
-import { listSupplyProductRows, listSupplyStats, scopeReportQuery } from '@/api/ozon/report';
-import type { OzonSupplyReportVO, OzonSupplyStatsVO, ReportQuery } from '@/api/ozon/report/types';
+import { listSupplyChart, listSupplyProductRows, scopeReportQuery } from '@/api/ozon/report';
+import type { OzonSupplyChartVO, OzonSupplyMonthVO, OzonSupplyReportVO, OzonSupplyStatsVO, ReportQuery } from '@/api/ozon/report/types';
 import { useOzonShopStore } from '@/store/modules/ozonShop';
 import { attachmentFiles } from '../components/attachmentFiles';
 
 echarts.use([BarChart, GridComponent, TooltipComponent, AriaComponent, CanvasRenderer]);
 
 /** 交货申请的状态取值，与「0.交货申请明细」的筛选口径一致。 */
-const STATUS_OPTIONS = ['已完成', '已逾期', '在发运点', '已准备发运', '已取消'];
+const STATUS_OPTIONS = ['已完成', '已逾期', '在发运点', '已准备发运', '已取消', '输入数据'];
 /** 明细表的排序口径：数字列按数值、日期列按日期（库内是 DD.MM.YYYY）、其余按中文文本。 */
 const DETAIL_SORT_KIND: Record<string, 'number' | 'date' | 'text'> = {
   applicationNo: 'number',
@@ -138,20 +166,25 @@ const DETAIL_SORT_KIND: Record<string, 'number' | 'date' | 'text'> = {
 };
 /** 明细弹窗每页行数（前端分页）。 */
 const DETAIL_PAGE_SIZE = 20;
-/** x 轴每个产品占用的最小宽度，保证图片与品名不被挤在一起。 */
+/** 产品图 x 轴每个产品占用的最小宽度，保证图片与品名不被挤在一起。 */
 const SLOT_WIDTH = 62;
-/** x 轴品名的折行字数。 */
+/** 产品图 x 轴品名的折行字数。 */
 const NAME_WRAP = 5;
+/** 交货主题色（蓝），两个图保持一致。 */
+const BAR_COLOR = '#409eff';
 
 const shopStore = useOzonShopStore();
-const items = ref<OzonSupplyStatsVO[]>([]);
+const chartData = ref<OzonSupplyChartVO>();
 const loading = ref(false);
 const error = ref('');
-// 默认只看已完成的交货申请。
+// 默认只看已完成的交货申请；月份默认全部。
 const status = ref('已完成');
+const month = ref('');
 const sortMode = ref<'quantity' | 'name'>('quantity');
 const showImage = ref(true);
+const monthChartElement = ref<HTMLElement>();
 const chartElement = ref<HTMLElement>();
+let monthChart: echarts.ECharts | undefined;
 let chart: echarts.ECharts | undefined;
 let observer: ResizeObserver | undefined;
 let requestVersion = 0;
@@ -160,6 +193,7 @@ let active = true;
 
 const detailVisible = ref(false);
 const detailProduct = ref<OzonSupplyStatsVO>();
+const detailMonth = ref('');
 const detailRows = ref<OzonSupplyReportVO[]>([]);
 const detailLoading = ref(false);
 const detailError = ref('');
@@ -168,21 +202,39 @@ const detailSortProp = ref('');
 const detailSortOrder = ref<'ascending' | 'descending' | ''>('');
 let detailVersion = 0;
 
-/** 柱子的横向顺序：默认沿用后端的交货数量倒序。 */
+const months = computed(() => chartData.value?.months ?? []);
+const items = computed(() => chartData.value?.products ?? []);
+/** 月份下拉选项：最新的月份排前面，方便选择。 */
+const monthOptions = computed(() => months.value.map(item => item.month).slice().reverse());
+/** 月份图的合计：只统计有完成日期的行。 */
+const monthTotal = computed(() => months.value.reduce((sum, item) => sum + monthQty(item), 0));
+/**
+ * 表头的交货件数取「按产品排行」的合计 —— 它跟随全部筛选（状态 + 月份），
+ * 与下面那张图始终一致；不能用月份图合计，否则选到没有完成日期的状态（如「输入数据」）时会显示成 0 件。
+ */
+const totalQuantity = computed(() => items.value.reduce((sum, item) => sum + quantity(item), 0));
+const totalQuantityText = computed(() => totalQuantity.value.toLocaleString('zh-CN'));
+
+/** 产品柱子的横向顺序：默认沿用后端的交货数量倒序。 */
 const sorted = computed(() => {
   const rows = [...items.value];
   if (sortMode.value === 'name') rows.sort((a, b) => productName(a).localeCompare(productName(b), 'zh-Hans-CN'));
   return rows;
 });
-const totalQuantity = computed(() => sorted.value.reduce((sum, item) => sum + quantity(item), 0));
-const totalQuantityText = computed(() => totalQuantity.value.toLocaleString('zh-CN'));
+const monthChartHeight = computed(() => 260);
+const monthChartWidth = computed(() => Math.max(months.value.length * 64, 320));
 const chartHeight = computed(() => 400);
 const chartWidth = computed(() => sorted.value.length * SLOT_WIDTH);
+const monthChartLabel = computed(
+  () => '各月份交货数量柱状图，共 ' + months.value.length + ' 个月，合计 ' + monthTotal.value.toLocaleString('zh-CN') + ' 件'
+);
 const chartLabel = computed(
   () => '各产品交货数量柱状图，共 ' + sorted.value.length + ' 个产品，合计 ' + totalQuantityText.value + ' 件'
 );
 
-const detailName = computed(() => (detailProduct.value ? productName(detailProduct.value) : ''));
+const detailName = computed(() =>
+  detailMonth.value && !detailProduct.value ? detailMonth.value + ' 交货明细' : detailProduct.value ? productName(detailProduct.value) : ''
+);
 const detailImage = computed(() => (detailProduct.value ? imageUrl(detailProduct.value) : ''));
 const detailTitle = computed(() => '交货明细 · ' + detailName.value);
 const detailTotal = computed(() => detailRows.value.reduce((sum, row) => sum + rowQuantity(row), 0));
@@ -216,6 +268,10 @@ const detailPageRows = computed(() => {
 const detailPageTotal = computed(() => detailPageRows.value.reduce((sum, row) => sum + rowQuantity(row), 0));
 
 function quantity(item: OzonSupplyStatsVO) {
+  const value = Number(item.totalQuantity);
+  return Number.isFinite(value) ? value : 0;
+}
+function monthQty(item: OzonSupplyMonthVO) {
   const value = Number(item.totalQuantity);
   return Number.isFinite(value) ? value : 0;
 }
@@ -269,6 +325,17 @@ function onDetailSortChange({ prop, order }: { prop: string; order: string | nul
   detailSortOrder.value = order === 'ascending' ? 'ascending' : order === 'descending' ? 'descending' : '';
   detailPage.value = 1;
 }
+function monthTooltip(params: CallbackDataParams | CallbackDataParams[]) {
+  const point = Array.isArray(params) ? params[0] : params;
+  const item = months.value[point?.dataIndex ?? -1];
+  if (!item) return '';
+  return [
+    item.month,
+    '交货数量：' + amount(monthQty(item)) + ' 件',
+    '交货申请数：' + Number(item.orderCount || 0) + ' 个',
+    '点击查看当月交货明细'
+  ].join('\n');
+}
 function tooltip(params: CallbackDataParams | CallbackDataParams[]) {
   const point = Array.isArray(params) ? params[0] : params;
   const item = sorted.value[point?.dataIndex ?? -1];
@@ -289,26 +356,102 @@ async function load() {
   error.value = '';
   try {
     await shopStore.ensureLoaded().catch(() => {});
-    // 不选状态时不下发 status，后端即不过滤申请状态。
+    // 不选状态/月份时不下发对应参数，后端即不过滤。
     const query: ReportQuery = {};
     if (status.value) query.status = status.value;
-    const result = await listSupplyStats(scopeReportQuery(query, shopStore.selectedId));
+    if (month.value) query.month = month.value;
+    const result = await listSupplyChart(scopeReportQuery(query, shopStore.selectedId));
     if (version !== requestVersion || disposed) return;
-    items.value = result.data ?? [];
-    await renderChart();
+    chartData.value = result.data;
+    await renderCharts();
   } catch {
     if (version === requestVersion && !disposed) {
       error.value = '交货数据查询失败，请点击刷新重试。';
-      items.value = [];
+      chartData.value = undefined;
     }
   } finally {
     if (version === requestVersion && !disposed) loading.value = false;
   }
 }
 
-async function renderChart() {
+function ensureMonthChart(): echarts.ECharts | undefined {
+  if (!monthChartElement.value) return undefined;
+  if (!monthChart) {
+    monthChart = echarts.init(monthChartElement.value);
+    monthChart.on('click', (params: CallbackDataParams) => {
+      const item = months.value[params.dataIndex as number];
+      if (item) void openDetail({ month: item.month });
+    });
+  }
+  return monthChart;
+}
+function ensureProductChart(): echarts.ECharts | undefined {
+  if (!chartElement.value) return undefined;
+  if (!chart) {
+    chart = echarts.init(chartElement.value);
+    chart.on('click', (params: CallbackDataParams) => {
+      const item = sorted.value[params.dataIndex as number];
+      if (item) void openDetail({ product: item });
+    });
+  }
+  return chart;
+}
+
+async function renderCharts() {
   await nextTick();
-  if (disposed || !active || !chartElement.value || !sorted.value.length) return;
+  if (disposed || !active) return;
+  renderMonthChart();
+  renderProductChart();
+  monthChart?.resize();
+  chart?.resize();
+}
+
+/** 按月趋势图：x=完成月份、y=交货数量，柱子可点开当月明细。 */
+function renderMonthChart() {
+  const instance = ensureMonthChart();
+  if (!instance || !months.value.length) return;
+  const rows = months.value;
+  instance.setOption(
+    {
+      aria: { enabled: true },
+      animation: false,
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, renderMode: 'richText', confine: true, formatter: monthTooltip },
+      grid: { top: 34, left: 8, right: 16, bottom: 8, containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: rows.map(item => item.month),
+        axisTick: { show: false },
+        axisLabel: { interval: 0, margin: 8 }
+      },
+      yAxis: {
+        type: 'value',
+        name: '交货数量（件）',
+        nameLocation: 'end',
+        nameGap: 14,
+        nameTextStyle: { fontSize: 12 },
+        minInterval: 1,
+        splitLine: { lineStyle: { type: 'dashed' } },
+        axisLabel: { formatter: (value: number) => amount(value) }
+      },
+      series: [
+        {
+          type: 'bar',
+          data: rows.map(item => monthQty(item)),
+          barMaxWidth: 40,
+          cursor: 'pointer',
+          itemStyle: { color: BAR_COLOR, borderRadius: [3, 3, 0, 0] },
+          label: { show: true, position: 'top', distance: 4, fontSize: 11, formatter: (params: CallbackDataParams) => amount(Number(params.value)) }
+        }
+      ]
+    },
+    { notMerge: true }
+  );
+}
+
+/** 按产品排行图：x=货品图片+品名、y=交货数量，柱子可点开该产品明细。 */
+function renderProductChart() {
+  const instance = ensureProductChart();
+  if (!instance || !sorted.value.length) return;
   const rows = sorted.value;
   const useImage = showImage.value;
   const images = rows.map(item => (useImage ? imageUrl(item) : ''));
@@ -317,14 +460,7 @@ async function renderChart() {
   images.forEach((url, index) => {
     if (url) rich['p' + index] = { width: 22, height: 22, borderRadius: 3, align: 'center', backgroundColor: { image: url } };
   });
-  if (!chart) {
-    chart = echarts.init(chartElement.value);
-    chart.on('click', (params: CallbackDataParams) => {
-      const item = sorted.value[params.dataIndex as number];
-      if (item) void openDetail(item);
-    });
-  }
-  chart.setOption(
+  instance.setOption(
     {
       aria: { enabled: true },
       animation: false,
@@ -357,29 +493,32 @@ async function renderChart() {
           data: rows.map(item => quantity(item)),
           barMaxWidth: 28,
           cursor: 'pointer',
-          itemStyle: { color: '#409eff', borderRadius: [3, 3, 0, 0] },
+          itemStyle: { color: BAR_COLOR, borderRadius: [3, 3, 0, 0] },
           label: { show: true, position: 'top', distance: 4, fontSize: 11, formatter: (params: CallbackDataParams) => amount(Number(params.value)) }
         }
       ]
     },
     { notMerge: true }
   );
-  chart.resize();
 }
 
-/** 点击柱子：拉取该产品的交货申请明细，用表格展示。 */
-async function openDetail(item: OzonSupplyStatsVO) {
+/** 点击柱子：拉取对应的交货申请明细，用表格展示。month 与 product 二选一。 */
+async function openDetail(options: { month?: string; product?: OzonSupplyStatsVO }) {
   const version = ++detailVersion;
-  detailProduct.value = item;
+  detailProduct.value = options.product;
+  detailMonth.value = options.month || '';
   detailVisible.value = true;
   detailPage.value = 1;
   detailRows.value = [];
   detailError.value = '';
   detailLoading.value = true;
   try {
-    // 明细必须沿用图表的筛选口径，否则分页数字与柱高对不上。
-    const query: ReportQuery = { sku: item.sku || '' };
+    // 明细必须沿用图表的筛选口径，否则行数与柱高对不上。
+    const query: ReportQuery = {};
     if (status.value) query.status = status.value;
+    const monthValue = options.month || month.value;
+    if (monthValue) query.month = monthValue;
+    if (options.product?.sku) query.sku = options.product.sku;
     const result = await listSupplyProductRows(scopeReportQuery(query, shopStore.selectedId));
     if (version !== detailVersion || disposed) return;
     detailRows.value = result.data ?? [];
@@ -390,21 +529,27 @@ async function openDetail(item: OzonSupplyStatsVO) {
   }
 }
 
-watch([sortMode, showImage], () => void renderChart());
+watch([sortMode, showImage], () => void renderProductChart());
 watch(() => shopStore.selectionKey, () => void load());
 onMounted(() => {
   observer = new ResizeObserver(() => {
-    if (active) chart?.resize();
+    if (active) {
+      monthChart?.resize();
+      chart?.resize();
+    }
   });
+  if (monthChartElement.value) observer.observe(monthChartElement.value);
   if (chartElement.value) observer.observe(chartElement.value);
   void load();
 });
 onActivated(() => {
   active = true;
-  void renderChart();
+  void renderCharts();
 });
 onDeactivated(() => {
   active = false;
+  monthChart?.dispose();
+  monthChart = undefined;
   chart?.dispose();
   chart = undefined;
 });
@@ -413,6 +558,8 @@ onBeforeUnmount(() => {
   requestVersion++;
   detailVersion++;
   observer?.disconnect();
+  monthChart?.dispose();
+  monthChart = undefined;
   chart?.dispose();
   chart = undefined;
 });
@@ -425,16 +572,19 @@ onBeforeUnmount(() => {
 .table-toolbar, .view-controls, .view-actions { display: flex; align-items: center; gap: 8px; }
 .table-toolbar { justify-content: space-between; flex-wrap: wrap; }
 .view-controls { flex: 1 1 auto; min-width: 0; }
-.view-actions { flex: none; margin-left: auto; }
+.view-actions { flex: none; margin-left: auto; flex-wrap: wrap; }
 .view-actions :deep(.el-button + .el-button) { margin-left: 0; }
 .status-select { width: 132px; }
+.month-select { width: 116px; }
 .record-count { font-size: 12px; color: var(--el-text-color-secondary); white-space: nowrap; }
 .description { font-size: 12px; line-height: 1.6; color: var(--el-text-color-secondary); margin: 8px 0 10px; }
 .notice { margin-top: 12px; font-size: 12px; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--el-text-color-primary); margin: 4px 0 8px; }
 .view-refreshing { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 20px; padding: 0 8px; border: 1px solid var(--el-border-color-lighter); border-radius: 4px; background: var(--el-bg-color-overlay); color: var(--el-text-color-secondary); font-size: 12px; line-height: 1; white-space: nowrap; }
 .view-refreshing-dot { display: inline-block; width: 9px; height: 9px; border: 1.5px solid var(--el-color-primary); border-top-color: transparent; border-radius: 50%; animation: view-refreshing-spin .7s linear infinite; }
 @keyframes view-refreshing-spin { to { transform: rotate(360deg); } }
 .chart-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }
+.supply-month-chart { width: 100%; }
 .supply-chart { width: 100%; }
 .detail-head { display: flex; align-items: center; gap: 12px; padding: 0 0 10px; }
 .detail-thumb { width: 48px; height: 48px; border: 1px solid var(--el-border-color-lighter); border-radius: 4px; object-fit: contain; flex: none; background: var(--el-fill-color-lighter); }
