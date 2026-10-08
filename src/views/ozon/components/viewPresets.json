@@ -7,7 +7,7 @@
         "query": {
           "pageNum": 1,
           "pageSize": 100,
-          "status": "已完成",
+          "status": "",
           "groupBy": "sku",
           "groupDesc": false,
           "orderByColumn": "completionDate",
@@ -43,7 +43,8 @@
             "desc": false
           }
         ],
-        "sorts": []
+        "sorts": [],
+        "rev": 2
       },
       "notes": [
         "原视图中的出货总数尚未接入当前页面。"
@@ -86,7 +87,8 @@
           "fixed": {}
         },
         "groups": [],
-        "sorts": []
+        "sorts": [],
+        "rev": 2
       },
       "notes": [
         "原视图中的Ozon详情链接、出货总数尚未接入当前页面。"

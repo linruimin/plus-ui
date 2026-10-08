@@ -43,11 +43,16 @@ export function useSavedViews(key: string, defaults: SavedView[], capture: () =>
       if (!rev) continue;
       const snap = snapshots.value[view.id];
       if (!isObject(snap) || snap.rev === rev) continue;
+      const presetQuery = view.snapshot.query;
+      // 预设里**显式声明**的「申请状态」始终同步到本地快照：历史快照存过「已完成」，
+      // 而需求已改成「默认显示全部状态」，不覆盖的话页面会一直只筛选已完成。
+      if (isObject(presetQuery) && typeof presetQuery.status === 'string') {
+        snap.query = { ...(isObject(snap.query) ? snap.query : {}), status: presetQuery.status };
+      }
       // rev 缺失 = 历史版本用 capture() 覆盖快照时丢掉的（见 saveCurrent）。这种情况快照里的列设置
       // 才是用户最新的，只补版本号、**不要**用预设覆盖，否则每刷新一次列设置就被重置一次。
       if (snap.rev === undefined || snap.rev === null) { snap.rev = rev; migrated = true; continue; }
       if (view.snapshot.columns !== undefined) snap.columns = clone(view.snapshot.columns);
-      const presetQuery = view.snapshot.query;
       if (isObject(presetQuery) && Array.isArray(presetQuery.conditions)) {
         // 筛选改为多维表格风格的条件列表，同时清掉旧的精确/包含/日期区间映射。
         snap.query = {

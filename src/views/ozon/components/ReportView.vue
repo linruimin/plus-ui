@@ -14,7 +14,7 @@
               <template #reference><el-button icon="Filter" :type="hasFilters ? 'primary' : 'default'" plain>筛选</el-button></template>
               <div class="report-panel">
                 <h3>{{ title }}</h3><p class="panel-description">{{ description }}</p>
-                <el-form-item v-if="kind === 'supply'" label="申请状态"><el-select v-model="query.status" clearable placeholder="全部状态"><el-option label="已完成" value="已完成"/><el-option label="全部状态" value=""/></el-select></el-form-item>
+                <el-form-item v-if="kind === 'supply'" label="申请状态"><el-select v-model="query.status" clearable placeholder="全部状态"><el-option label="全部状态" value=""/><el-option v-for="item in supplyStatuses" :key="item" :label="item" :value="item"/></el-select></el-form-item>
       <el-form :model="query" label-position="top" class="panel-filters" @submit.prevent="applyFilters">
         <el-form-item v-if="kind === 'monthly' || kind === 'returns-report'" :label="kind === 'returns-report' ? '退货月份' : '统计月份'">
           <el-date-picker v-model="query.reportMonth" type="month" value-format="YYYY-MM-01" placeholder="全部月份" clearable />
@@ -127,6 +127,8 @@ const storageWarning = ref(false);
 const titles = { monthly: '产品月报', accruals: '订单费用明细', supply: '交货申请明细', 'returns-report': '退货报表' };
 const title = computed(() => props.trendOnly ? '产品销售趋势' : titles[kind.value]);
 const description = computed(() => kind.value === 'monthly' ? '按月份或卖家 SKU 查看产品收入与最终到手金额。' : kind.value === 'accruals' ? '按应计费用编号汇总正负金额，展开可查看全部原始记录。' : kind.value === 'returns-report' ? '按退货月份和商品汇总退货件数、退货率与退货相关费用。' : '按原视图筛选、分组查询交货商品记录。');
+/** 交货申请明细的「申请状态」筛选候选：与库中实际取值一致（留空 = 全部状态，也是默认值）。 */
+const supplyStatuses = ['已完成', '已取消', '已逾期', '已准备发运', '在发运点', '输入数据'];
 const columns = computed(() => reportColumns[kind.value]);
 const query = reactive<ReportQuery>({ pageNum: 1, pageSize: 100, groupBy: savedGroup });
 const dateRange = ref<string[]>([]);
@@ -156,7 +158,7 @@ function restorePreferences() {
   const groupBy = query.groupBy;
   const groupDesc = query.groupDesc;
   for (const key of Object.keys(query)) Reflect.deleteProperty(query, key);
-  Object.assign(query, { pageNum: 1, pageSize: 100, groupBy, groupDesc, ...(kind.value === 'supply' ? {status: '已完成'} : {}) });
+  Object.assign(query, { pageNum: 1, pageSize: 100, groupBy, groupDesc, ...(kind.value === 'supply' ? { status: '' } : {}) });
   setDefaultSort();
   Object.assign(query, normalizeQuery(saved.query, columns.value, { ...query }));
   dateRange.value = normalizeDates(saved.dateRange);
@@ -457,7 +459,7 @@ function resetQuery() {
   const groupBy = query.groupBy;
   const groupDesc = query.groupDesc;
   for (const key of Object.keys(query)) Reflect.deleteProperty(query, key);
-  Object.assign(query, { pageNum: 1, pageSize: 100, groupBy, groupDesc, ...(kind.value === 'supply' ? {status: '已完成'} : {}) });
+  Object.assign(query, { pageNum: 1, pageSize: 100, groupBy, groupDesc, ...(kind.value === 'supply' ? { status: '' } : {}) });
   dateRange.value = []; setDefaultSort(); getList();
 }
 function sortChange({ prop, order }: { prop: string; order: string | null }) {
@@ -517,7 +519,7 @@ function applySavedView(snapshot: ViewSnapshot) {
   const next: Record<string, any> = { pageNum: 1, pageSize: 100,
     groupBy: ['month', 'sku', 'none'].includes(saved.groupBy) ? saved.groupBy : (kind.value === 'monthly' || kind.value === 'returns-report' ? 'month' : 'none'),
     groupDesc: saved.groupDesc === true,
-    ...(kind.value === 'supply' ? { status: '已完成' } : {}) };
+    ...(kind.value === 'supply' ? { status: '' } : {}) };
   Object.assign(next, defaultSortOf(next.groupBy));
   Object.assign(next, normalizeQuery(saved, columns.value, { ...next }));
   // 默认主键排序也由后端白名单支持，但不作为数据列展示。
