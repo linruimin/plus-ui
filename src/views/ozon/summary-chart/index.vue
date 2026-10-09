@@ -34,7 +34,8 @@
         订单数量按<b>应计费用编号</b>统计：一笔订单在应计明细里会横跨「销售 / 佣金 / 配送」多行，同一个费用编号只计一次，
         不重复累加，因此和「按货号」的合计能对上。
         「月份」筛选作用于按货号图与下钻明细，上面那张月趋势图始终展示全部月份；<b>点击任意柱子可展开对应来源的明细</b>。
-        交货 / 退货为全量口径（不做状态过滤），订单为全部费用分组。
+        交货<b>只统计「已完成」状态</b>（与「0.1.交货图表」的默认状态一致，已取消 / 已逾期等不计入），
+        退货为全量口径（不做状态过滤），订单为全部费用分组。
       </p>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" class="notice" />
       <el-empty v-else-if="!loading && !months.length && !items.length" description="没有符合条件的汇总记录" />
@@ -172,6 +173,13 @@ const NAME_WRAP = 5;
  * 后端收到 null 就当成「不过滤」，会把整库明细都返回。约定用这个非空哨兵，由后端翻译回空串。
  */
 const NO_SKU_TOKEN = '__NO_SKU__';
+
+/**
+ * 汇总图表里交货侧固定只统计「已完成」状态的交货申请（与「0.1.交货图表」的默认状态一致）。
+ * 交货明细还包含已取消 / 已逾期 / 已准备发运 / 在发运点 / 输入数据，混在一起会让汇总数虚高；
+ * 图与下钻明细必须同口径，所以下钻时也要带上这个状态。
+ */
+const SUPPLY_DONE_STATUS = '已完成';
 
 type SummaryKind = 'supply' | 'accrual' | 'returns';
 type DetailRow = Record<string, any>;
@@ -702,6 +710,8 @@ async function loadDetail() {
     if (monthValue) query.month = monthValue;
     if (detailKind.value === 'supply') {
       if (detailProduct.value?.sku) query.sku = detailProduct.value.sku;
+      // 图表里的交货只算「已完成」，下钻明细必须同口径，否则行数与柱高对不上。
+      query.status = SUPPLY_DONE_STATUS;
       const result = await listSupplyProductRows(scopeReportQuery(query, shopStore.selectedId));
       if (version !== detailVersion || disposed) return;
       detailRows.value = (result.data ?? []) as unknown as DetailRow[];
