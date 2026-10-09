@@ -154,6 +154,14 @@ const SLOT_WIDTH = 62;
 const NAME_WRAP = 5;
 /** 订单主题色（蓝），与 0.1 交货图表 / 2.1 退货图表保持一致。 */
 const BAR_COLOR = '#409eff';
+/**
+ * 「未标注货号」的哨兵值。
+ * 图表里 seller_sku 为空的槽位（平台级费用：广告点击、FBO 跨仓中转、仓储费、债权债务抵销等）
+ * 下钻时不能把空串直接当 sku 下发：若依 tansParams 对 `value === ''` 会整条跳过参数，
+ * 空串进不了 URL，后端收到 null 就当成「不过滤」，会把整库明细都返回。
+ * 所以约定用这个非空哨兵，由后端 OzonReportServiceImpl 翻译回空串。
+ */
+const NO_SKU_TOKEN = '__NO_SKU__';
 
 const shopStore = useOzonShopStore();
 const chartData = ref<OzonAccrualChartVO>();
@@ -479,8 +487,9 @@ async function loadDetail() {
     if (serviceGroup.value) query.serviceGroup = serviceGroup.value;
     const monthValue = detailMonth.value || month.value;
     if (monthValue) query.month = monthValue;
-    // 图表里的「未标注货号」= seller_sku 为空，要显式下发空串；不点货号柱时整个参数不下发。
-    if (detailProduct.value) query.sku = detailProduct.value.sku || '';
+    // 图表里的「未标注货号」= seller_sku 为空，用哨兵值下发（空串会被 tansParams 丢弃，等于不传，
+    // 后端会返回全量明细）；不点货号柱时整个参数不下发。
+    if (detailProduct.value) query.sku = detailProduct.value.sku || NO_SKU_TOKEN;
     if (detailSortProp.value) {
       query.orderByColumn = detailSortProp.value;
       query.isAsc = detailSortOrder.value === 'ascending' ? 'ascending' : 'descending';
