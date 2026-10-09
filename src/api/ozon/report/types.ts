@@ -170,6 +170,38 @@ export interface OzonAccrualChartVO {
   products: OzonAccrualProductVO[];
 }
 
+/** 汇总图表：单个月份的三个主题汇总（交货 / 退货＝件，订单＝RUB 净额）；缺的主题为空。 */
+export interface OzonSummaryMonthVO {
+  month: string;
+  supplyQty: number | string | null;
+  supplyOrders: number | string | null;
+  accrualAmountRub: number | string | null;
+  accrualCount: number | string | null;
+  returnQty: number | string | null;
+  returnShipments: number | string | null;
+}
+
+/** 汇总图表：单个卖家货号的三个主题汇总；点柱子按来源下钻。 */
+export interface OzonSummaryProductVO {
+  /** 卖家货号；订单侧平台级费用没有货号时为空串，页面显示为「未标注货号」。 */
+  sku: string | null;
+  /** 产品库中文品名。 */
+  productName: string | null;
+  attachmentJson: string | null;
+  supplyQty: number | string | null;
+  supplyOrders: number | string | null;
+  accrualAmountRub: number | string | null;
+  accrualCount: number | string | null;
+  returnQty: number | string | null;
+  returnShipments: number | string | null;
+}
+
+/** 汇总图表：一次查询返回的三个主题两个维度汇总（交货 / 订单 / 退货并在一起）。 */
+export interface OzonSummaryChartVO {
+  months: OzonSummaryMonthVO[];
+  products: OzonSummaryProductVO[];
+}
+
 /** 退货图表下钻明细行：与「8.退货」业务视图同源的字段。 */
 export interface OzonReturnsRowVO extends ReportRow {
   id: number | string | null;

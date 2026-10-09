@@ -1,7 +1,7 @@
 import type { PageResult } from '@/api/types';
 import type { AxiosPromise } from '@/utils/api-types';
 import request from '@/utils/request';
-import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale, OzonSupplyChartVO, OzonSupplyReportVO, OzonReturnsChartVO, OzonReturnsRowVO, OzonAccrualChartVO, OzonAccrualReportVO } from './types';
+import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale, OzonSupplyChartVO, OzonSupplyReportVO, OzonReturnsChartVO, OzonReturnsRowVO, OzonAccrualChartVO, OzonAccrualReportVO, OzonSummaryChartVO } from './types';
 
 /** 查询已有 Ozon 报表。 */
 export function listReport(kind: ReportKind, query: ReportQuery): AxiosPromise<PageResult<ReportRow>> {
@@ -36,6 +36,11 @@ export function listAccrualChart(query: ReportQuery): AxiosPromise<OzonAccrualCh
 /** 订单图表下钻：某个卖家货号或某个月份下的订单费用原始明细行；单货号单月可达数万行，后端分页返回。 */
 export function listAccrualChartRows(query: ReportQuery): AxiosPromise<PageResult<OzonAccrualReportVO>> {
   return request({ url: '/ozon/report/accruals/chart-rows', method: 'get', params: query });
+}
+
+/** 汇总图表：交货 / 订单 / 退货三个主题的月度与货号汇总，一次查询保证口径一致。 */
+export function listSummaryChart(query: ReportQuery): AxiosPromise<OzonSummaryChartVO> {
+  return request({ url: '/ozon/report/summary/chart', method: 'get', params: query });
 }
 
 /** 查询一个费用编号的所有正负原始明细。 */
