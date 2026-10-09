@@ -175,7 +175,8 @@ export interface OzonSummaryMonthVO {
   month: string;
   supplyQty: number | string | null;
   supplyOrders: number | string | null;
-  accrualAmountRub: number | string | null;
+  /** 订单数量：同一个应计费用编号只计一次（归月取该编号最早的应计日期）。 */
+  accrualQty: number | string | null;
   accrualCount: number | string | null;
   returnQty: number | string | null;
   returnShipments: number | string | null;
@@ -190,7 +191,8 @@ export interface OzonSummaryProductVO {
   attachmentJson: string | null;
   supplyQty: number | string | null;
   supplyOrders: number | string | null;
-  accrualAmountRub: number | string | null;
+  /** 订单数量：同一个应计费用编号只计一次，与交货 / 退货同为「件」。 */
+  accrualQty: number | string | null;
   accrualCount: number | string | null;
   returnQty: number | string | null;
   returnShipments: number | string | null;

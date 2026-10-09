@@ -6,7 +6,7 @@
           <div class="view-controls">
             <el-tag v-if="shopStore.selectedName" type="primary" size="small">{{ shopStore.selectedName }}</el-tag>
             <span class="record-count">
-              共 {{ months.length }} 个月 · {{ items.length }} 个货号 · 交货 {{ supplyTotalText }} 件 · 退货 {{ returnTotalText }} 件 · 订单净额 {{ accrualTotalText }} RUB
+              共 {{ months.length }} 个月 · {{ items.length }} 个货号 · 交货 {{ supplyTotalText }} 件 · 订单 {{ accrualTotalText }} 件 · 退货 {{ returnTotalText }} 件
             </span>
             <span v-if="loading" class="view-refreshing" role="status"><i class="view-refreshing-dot"></i>数据更新中</span>
           </div>
@@ -17,8 +17,8 @@
             </el-select>
             <el-radio-group v-model="sortMode" size="small" aria-label="排序方式">
               <el-radio-button value="supply">按交货件数</el-radio-button>
+              <el-radio-button value="qty">按订单数量</el-radio-button>
               <el-radio-button value="return">按退货件数</el-radio-button>
-              <el-radio-button value="amount">按订单金额</el-radio-button>
               <el-radio-button value="name">按品名</el-radio-button>
             </el-radio-group>
             <el-switch v-model="showImage" active-text="产品图片" />
@@ -27,17 +27,19 @@
         </div>
       </template>
       <p class="description">
-        把<b>交货、订单、退货</b>三个主题的汇总放在一起对比。上半部分<b>按月趋势</b>是一张双轴组合图：
-        <b class="c-supply">交货件数</b>与<b class="c-return">退货件数</b>走左轴（单位：件），
-        <b class="c-accrual">订单净额</b>走右轴（单位：RUB）；下半部分<b>按货号排行</b>把同一卖家货号的三个指标并排展示，同样是双轴。
-        归月口径与各自的图表页一致：交货按明细「完成日期」、退货按「退货日期」、订单按「应计日期」；订单金额统一取「总计（RUB）净额」。
+        把<b>交货、订单、退货</b>三个主题的汇总放在一起对比，三个指标<b>单位统一为「件」</b>。
+        上半部分<b>按月趋势</b>是一张组合图：<b class="c-supply">交货件数</b>、<b class="c-accrual">订单数量</b>、
+        <b class="c-return">退货件数</b>依次同轴并排；下半部分<b>按货号排行</b>把同一卖家货号的三个指标并排展示。
+        归月口径与各自的图表页一致：交货按明细「完成日期」、退货按「退货日期」、订单按「应计日期」。
+        订单数量按<b>应计费用编号</b>统计：一笔订单在应计明细里会横跨「销售 / 佣金 / 配送」多行，同一个费用编号只计一次，
+        不重复累加，因此和「按货号」的合计能对上。
         「月份」筛选作用于按货号图与下钻明细，上面那张月趋势图始终展示全部月份；<b>点击任意柱子可展开对应来源的明细</b>。
         交货 / 退货为全量口径（不做状态过滤），订单为全部费用分组。
       </p>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" class="notice" />
       <el-empty v-else-if="!loading && !months.length && !items.length" description="没有符合条件的汇总记录" />
       <template v-else>
-        <div class="section-title">按月趋势（交货件数 / 退货件数 / 订单净额）</div>
+        <div class="section-title">按月趋势（交货件数 / 订单数量 / 退货件数）</div>
         <div v-show="months.length" class="chart-scroll">
           <div
             ref="monthChartElement"
@@ -49,7 +51,7 @@
         </div>
         <el-empty v-if="!months.length && !loading" description="没有按月汇总记录" :image-size="72" />
         <template v-if="items.length">
-          <div class="section-title">按货号排行（交货 / 退货 / 订单三指标并排）</div>
+          <div class="section-title">按货号排行（交货 / 订单 / 退货三指标并排）</div>
           <div class="chart-scroll">
             <div
               ref="chartElement"
@@ -84,8 +86,8 @@
         </div>
         <div class="detail-stats">
           <span class="c-supply">交货 <b>{{ int(detailStat.supplyQty) }}</b> 件</span>
+          <span class="c-accrual">订单 <b>{{ int(detailStat.accrualQty) }}</b> 件</span>
           <span class="c-return">退货 <b>{{ int(detailStat.returnQty) }}</b> 件</span>
-          <span class="c-accrual">订单净额 <b>{{ money(detailStat.accrualAmountRub) }}</b> RUB</span>
           <span>明细 <b>{{ detailTotal }}</b> 行</span>
         </div>
       </div>
@@ -243,7 +245,7 @@ const chartData = ref<OzonSummaryChartVO>();
 const loading = ref(false);
 const error = ref('');
 const month = ref('');
-const sortMode = ref<'supply' | 'return' | 'amount' | 'name'>('supply');
+const sortMode = ref<'supply' | 'return' | 'qty' | 'name'>('supply');
 const showImage = ref(true);
 const monthChartElement = ref<HTMLElement>();
 const chartElement = ref<HTMLElement>();
@@ -260,10 +262,10 @@ const detailProduct = ref<OzonSummaryProductVO>();
 const detailMonth = ref('');
 const detailRows = ref<DetailRow[]>([]);
 const detailTotal = ref(0);
-const detailStat = ref<{ supplyQty: number; returnQty: number; accrualAmountRub: number }>({
+const detailStat = ref<{ supplyQty: number; returnQty: number; accrualQty: number }>({
   supplyQty: 0,
   returnQty: 0,
-  accrualAmountRub: 0
+  accrualQty: 0
 });
 const detailLoading = ref(false);
 const detailError = ref('');
@@ -278,16 +280,16 @@ const items = computed(() => chartData.value?.products ?? []);
 const monthOptions = computed(() => months.value.map(item => item.month).slice().reverse());
 const supplyTotal = computed(() => items.value.reduce((sum, item) => sum + supplyQty(item), 0));
 const returnTotal = computed(() => items.value.reduce((sum, item) => sum + returnQty(item), 0));
-const accrualTotal = computed(() => items.value.reduce((sum, item) => sum + accrualAmount(item), 0));
+const accrualTotal = computed(() => items.value.reduce((sum, item) => sum + accrualQty(item), 0));
 const supplyTotalText = computed(() => int(supplyTotal.value));
 const returnTotalText = computed(() => int(returnTotal.value));
-const accrualTotalText = computed(() => money(accrualTotal.value));
+const accrualTotalText = computed(() => int(accrualTotal.value));
 
-/** 货号槽位的横向顺序：默认沿用后端的交货件数倒序，可切换到退货 / 订单金额 / 品名。 */
+/** 货号槽位的横向顺序：默认沿用后端的交货件数倒序，可切换到订单数量 / 退货件数 / 品名。 */
 const sorted = computed(() => {
   const rows = [...items.value];
   if (sortMode.value === 'return') rows.sort((a, b) => returnQty(b) - returnQty(a));
-  else if (sortMode.value === 'amount') rows.sort((a, b) => accrualAmount(b) - accrualAmount(a));
+  else if (sortMode.value === 'qty') rows.sort((a, b) => accrualQty(b) - accrualQty(a));
   else if (sortMode.value === 'name') rows.sort((a, b) => productName(a).localeCompare(productName(b), 'zh-Hans-CN'));
   return rows;
 });
@@ -297,15 +299,15 @@ const chartHeight = computed(() => 400);
 const chartWidth = computed(() => sorted.value.length * SLOT_WIDTH);
 const monthChartLabel = computed(
   () =>
-    '各月份交货件数、退货件数、订单净额组合柱状图，共 ' + months.value.length + ' 个月，合计交货 ' +
-    int(months.value.reduce((sum, item) => sum + monthSupplyQty(item), 0)) + ' 件、退货 ' +
-    int(months.value.reduce((sum, item) => sum + monthReturnQty(item), 0)) + ' 件、订单净额 ' +
-    money(months.value.reduce((sum, item) => sum + monthAccrualAmount(item), 0)) + ' 卢布'
+    '各月份交货件数、订单数量、退货件数组合柱状图，共 ' + months.value.length + ' 个月，合计交货 ' +
+    int(months.value.reduce((sum, item) => sum + monthSupplyQty(item), 0)) + ' 件、订单数量 ' +
+    int(months.value.reduce((sum, item) => sum + monthAccrualQty(item), 0)) + ' 件、退货 ' +
+    int(months.value.reduce((sum, item) => sum + monthReturnQty(item), 0)) + ' 件'
 );
 const chartLabel = computed(
   () =>
-    '各货号交货件数、退货件数、订单净额组合柱状图，共 ' + sorted.value.length + ' 个货号，合计交货 ' +
-    supplyTotalText.value + ' 件、退货 ' + returnTotalText.value + ' 件、订单净额 ' + accrualTotalText.value + ' 卢布'
+    '各货号交货件数、订单数量、退货件数组合柱状图，共 ' + sorted.value.length + ' 个货号，合计交货 ' +
+    supplyTotalText.value + ' 件、订单数量 ' + accrualTotalText.value + ' 件、退货 ' + returnTotalText.value + ' 件'
 );
 
 const detailName = computed(() =>
@@ -351,8 +353,8 @@ function monthSupplyQty(item: OzonSummaryMonthVO) {
 function monthReturnQty(item: OzonSummaryMonthVO) {
   return qty(item.returnQty);
 }
-function monthAccrualAmount(item: OzonSummaryMonthVO) {
-  return Number.isFinite(Number(item.accrualAmountRub)) ? Number(item.accrualAmountRub) : 0;
+function monthAccrualQty(item: OzonSummaryMonthVO) {
+  return qty(item.accrualQty);
 }
 function supplyQty(item: OzonSummaryProductVO) {
   return qty(item.supplyQty);
@@ -360,9 +362,8 @@ function supplyQty(item: OzonSummaryProductVO) {
 function returnQty(item: OzonSummaryProductVO) {
   return qty(item.returnQty);
 }
-function accrualAmount(item: OzonSummaryProductVO) {
-  const value = Number(item.accrualAmountRub);
-  return Number.isFinite(value) ? value : 0;
+function accrualQty(item: OzonSummaryProductVO) {
+  return qty(item.accrualQty);
 }
 function qty(value: number | string | null | undefined) {
   const number = Number(value);
@@ -395,11 +396,6 @@ function money(value: number | string | null | undefined) {
   const number = Number(value);
   if (!Number.isFinite(number)) return '0';
   return number.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
-}
-/** 柱顶标签用的紧凑格式：金额过万折成「万」，避免长数字互相压字。 */
-function compact(value: number, unit: 'qty' | 'rub') {
-  if (unit === 'rub' && Math.abs(value) >= 10000) return (value / 10000).toFixed(1) + '万';
-  return int(value);
 }
 /** x 轴标签按固定字数折行，避免相邻货号的品名互相压字。 */
 function wrapName(name: string) {
@@ -453,8 +449,8 @@ function monthTooltip(params: CallbackDataParams | CallbackDataParams[]) {
   return [
     item.month,
     '交货：' + int(monthSupplyQty(item)) + ' 件（' + Number(item.supplyOrders || 0) + ' 个申请）',
+    '订单数量：' + int(monthAccrualQty(item)) + ' 件（' + Number(item.accrualCount || 0) + ' 个应计费用编号）',
     '退货：' + int(monthReturnQty(item)) + ' 件（' + Number(item.returnShipments || 0) + ' 行货件）',
-    '订单净额：' + money(monthAccrualAmount(item)) + ' RUB（' + Number(item.accrualCount || 0) + ' 个费用编号）',
     '点击柱子查看对应明细'
   ].join('\n');
 }
@@ -466,8 +462,8 @@ function tooltip(params: CallbackDataParams | CallbackDataParams[]) {
   return [
     productName(item) + (code ? '（' + code + '）' : ''),
     '交货：' + int(supplyQty(item)) + ' 件（' + Number(item.supplyOrders || 0) + ' 个申请）',
+    '订单数量：' + int(accrualQty(item)) + ' 件（' + Number(item.accrualCount || 0) + ' 个应计费用编号）',
     '退货：' + int(returnQty(item)) + ' 件（' + Number(item.returnShipments || 0) + ' 行货件）',
-    '订单净额：' + money(accrualAmount(item)) + ' RUB（' + Number(item.accrualCount || 0) + ' 个费用编号）',
     '点击柱子查看对应明细'
   ].join('\n');
 }
@@ -521,14 +517,14 @@ function ensureProductChart(): echarts.ECharts | undefined {
 /** 柱子名 → 明细来源。 */
 function kindOfSeries(name?: string): SummaryKind {
   if (name === '退货件数') return 'returns';
-  if (name === '订单净额') return 'accrual';
+  if (name === '订单数量') return 'accrual';
   return 'supply';
 }
 function monthStat(item: OzonSummaryMonthVO) {
-  return { supplyQty: monthSupplyQty(item), returnQty: monthReturnQty(item), accrualAmountRub: monthAccrualAmount(item) };
+  return { supplyQty: monthSupplyQty(item), returnQty: monthReturnQty(item), accrualQty: monthAccrualQty(item) };
 }
 function productStat(item: OzonSummaryProductVO) {
-  return { supplyQty: supplyQty(item), returnQty: returnQty(item), accrualAmountRub: accrualAmount(item) };
+  return { supplyQty: supplyQty(item), returnQty: returnQty(item), accrualQty: accrualQty(item) };
 }
 
 async function renderCharts() {
@@ -540,7 +536,7 @@ async function renderCharts() {
   chart?.resize();
 }
 
-/** 月度组合图：x=月份，左轴=件数（交货 / 退货），右轴=RUB（订单净额），柱子可点开当月明细。 */
+/** 月度组合图：x=月份，单轴=件数（交货 / 订单 / 退货），柱子可点开当月明细。 */
 function renderMonthChart() {
   const instance = ensureMonthChart();
   if (!instance || !months.value.length) return;
@@ -566,13 +562,6 @@ function renderMonthChart() {
           minInterval: 1,
           splitLine: { lineStyle: { type: 'dashed' } },
           axisLabel: { formatter: (value: number) => int(value) }
-        },
-        {
-          type: 'value',
-          name: '净额（RUB）',
-          nameTextStyle: { fontSize: 12 },
-          splitLine: { show: false },
-          axisLabel: { formatter: (value: number) => compact(value, 'rub') }
         }
       ],
       series: [
@@ -584,7 +573,17 @@ function renderMonthChart() {
           barMaxWidth: 20,
           cursor: 'pointer',
           itemStyle: { color: SUPPLY_COLOR, borderRadius: [3, 3, 0, 0] },
-          label: { show: true, position: 'top', distance: 3, fontSize: 10, formatter: (params: CallbackDataParams) => compact(Number(params.value), 'qty') }
+          label: { show: true, position: 'top', distance: 3, fontSize: 10, formatter: (params: CallbackDataParams) => int(Number(params.value)) }
+        },
+        {
+          name: '订单数量',
+          type: 'bar',
+          yAxisIndex: 0,
+          data: rows.map(item => monthAccrualQty(item)),
+          barMaxWidth: 20,
+          cursor: 'pointer',
+          itemStyle: { color: ORDER_COLOR, borderRadius: [3, 3, 0, 0] },
+          label: { show: true, position: 'top', distance: 3, fontSize: 10, formatter: (params: CallbackDataParams) => int(Number(params.value)) }
         },
         {
           name: '退货件数',
@@ -594,26 +593,15 @@ function renderMonthChart() {
           barMaxWidth: 20,
           cursor: 'pointer',
           itemStyle: { color: RETURN_COLOR, borderRadius: [3, 3, 0, 0] },
-          label: { show: true, position: 'top', distance: 3, fontSize: 10, formatter: (params: CallbackDataParams) => compact(Number(params.value), 'qty') }
+          label: { show: true, position: 'top', distance: 3, fontSize: 10, formatter: (params: CallbackDataParams) => int(Number(params.value)) }
         },
-        {
-          name: '订单净额',
-          type: 'bar',
-          yAxisIndex: 1,
-          // 净额可能为负，负数柱子向下画，柱顶数字要落到柱子另一端。
-          data: rows.map(item => ({ value: monthAccrualAmount(item), label: { position: monthAccrualAmount(item) < 0 ? 'bottom' : 'top' } })),
-          barMaxWidth: 20,
-          cursor: 'pointer',
-          itemStyle: { color: ORDER_COLOR, borderRadius: [3, 3, 0, 0] },
-          label: { show: true, distance: 3, fontSize: 10, formatter: (params: CallbackDataParams) => compact(Number(params.value), 'rub') }
-        }
       ]
     },
     { notMerge: true }
   );
 }
 
-/** 货号分组图：x=货品图片+品名，同一货号并排三根柱（双轴），柱子可点开该货号对应来源的明细。 */
+/** 货号分组图：x=货品图片+品名，同一货号并排三根柱（单轴「件数」），柱子可点开该货号对应来源的明细。 */
 function renderProductChart() {
   const instance = ensureProductChart();
   if (!instance || !sorted.value.length) return;
@@ -651,13 +639,6 @@ function renderProductChart() {
           minInterval: 1,
           splitLine: { lineStyle: { type: 'dashed' } },
           axisLabel: { formatter: (value: number) => int(value) }
-        },
-        {
-          type: 'value',
-          name: '净额（RUB）',
-          nameTextStyle: { fontSize: 12 },
-          splitLine: { show: false },
-          axisLabel: { formatter: (value: number) => compact(value, 'rub') }
         }
       ],
       series: [
@@ -671,6 +652,15 @@ function renderProductChart() {
           itemStyle: { color: SUPPLY_COLOR, borderRadius: [2, 2, 0, 0] }
         },
         {
+          name: '订单数量',
+          type: 'bar',
+          yAxisIndex: 0,
+          data: rows.map(item => accrualQty(item)),
+          barMaxWidth: 16,
+          cursor: 'pointer',
+          itemStyle: { color: ORDER_COLOR, borderRadius: [2, 2, 0, 0] }
+        },
+        {
           name: '退货件数',
           type: 'bar',
           yAxisIndex: 0,
@@ -679,15 +669,6 @@ function renderProductChart() {
           cursor: 'pointer',
           itemStyle: { color: RETURN_COLOR, borderRadius: [2, 2, 0, 0] }
         },
-        {
-          name: '订单净额',
-          type: 'bar',
-          yAxisIndex: 1,
-          data: rows.map(item => accrualAmount(item)),
-          barMaxWidth: 16,
-          cursor: 'pointer',
-          itemStyle: { color: ORDER_COLOR, borderRadius: [2, 2, 0, 0] }
-        }
       ]
     },
     { notMerge: true }
@@ -695,7 +676,7 @@ function renderProductChart() {
 }
 
 /** 打开明细弹窗：先定来源与口径，再拉第 1 页。 */
-async function openDetail(options: { month?: string; product?: OzonSummaryProductVO; kind: SummaryKind; stat: { supplyQty: number; returnQty: number; accrualAmountRub: number } }) {
+async function openDetail(options: { month?: string; product?: OzonSummaryProductVO; kind: SummaryKind; stat: { supplyQty: number; returnQty: number; accrualQty: number } }) {
   detailKind.value = options.kind;
   detailProduct.value = options.product;
   detailMonth.value = options.month || '';
