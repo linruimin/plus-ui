@@ -30,12 +30,13 @@
         把<b>交货、订单、退货</b>三个主题的汇总放在一起对比，三个指标<b>单位统一为「件」</b>。
         上半部分<b>按月趋势</b>是一张组合图：<b class="c-supply">交货件数</b>、<b class="c-accrual">订单数量</b>、
         <b class="c-return">退货件数</b>依次同轴并排；下半部分<b>按货号排行</b>把同一卖家货号的三个指标并排展示。
-        归月口径与各自的图表页一致：交货按明细「完成日期」、退货按「退货日期」、订单按「应计日期」。
-        订单数量按<b>应计费用编号</b>统计：一笔订单在应计明细里会横跨「销售 / 佣金 / 配送」多行，同一个费用编号只计一次，
-        不重复累加，因此和「按货号」的合计能对上。
+        归月口径与各自的图表页一致：交货按明细「完成日期」、退货按「退货日期」、订单按产品月报的统计月份。
+        订单数量取<b>产品月报的「售出件数」</b>，即该货号当月真实卖出多少件；不用应计明细按费用编号去重
+        （应计是按「费用」铺开的，一笔销售横跨「销售收入 / 佣金 / 物流」七八行，还混着大量与卖货无关的服务费单据，
+        去重后仍有约 40% 不是卖货）。
         「月份」筛选作用于按货号图与下钻明细，上面那张月趋势图始终展示全部月份；<b>点击任意柱子可展开对应来源的明细</b>。
         交货<b>只统计「已完成」状态</b>（与「0.1.交货图表」的默认状态一致，已取消 / 已逾期等不计入），
-        退货为全量口径（不做状态过滤），订单为全部费用分组。
+        退货为全量口径（不做状态过滤）。
       </p>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" class="notice" />
       <el-empty v-else-if="!loading && !months.length && !items.length" description="没有符合条件的汇总记录" />
@@ -147,7 +148,7 @@ import {
   listSummaryChart,
   listSupplyProductRows,
   listReturnsChartRows,
-  listAccrualChartRows,
+  listReport,
   scopeReportQuery
 } from '@/api/ozon/report';
 import type { OzonSummaryChartVO, OzonSummaryMonthVO, OzonSummaryProductVO, ReportQuery } from '@/api/ozon/report/types';
@@ -166,14 +167,6 @@ const DETAIL_PAGE_SIZE = 20;
 const SLOT_WIDTH = 92;
 /** 货号图 x 轴品名的折行字数。 */
 const NAME_WRAP = 5;
-/**
- * 「未标注货号」的哨兵值。
- * 订单侧 seller_sku 为空的行（平台级费用：广告点击、FBO 跨仓中转、仓储费、债权债务抵销等）下钻时，
- * 不能把空串直接当 sku 下发：若依 tansParams 对 `value === ''` 会整条跳过参数，空串进不了 URL，
- * 后端收到 null 就当成「不过滤」，会把整库明细都返回。约定用这个非空哨兵，由后端翻译回空串。
- */
-const NO_SKU_TOKEN = '__NO_SKU__';
-
 /**
  * 汇总图表里交货侧固定只统计「已完成」状态的交货申请（与「0.1.交货图表」的默认状态一致）。
  * 交货明细还包含已取消 / 已逾期 / 已准备发运 / 在发运点 / 输入数据，混在一起会让汇总数虚高；
@@ -211,26 +204,6 @@ const SUPPLY_COLUMNS: DetailColumn[] = [
   { prop: 'dispatchPoint', label: '发运点', minWidth: 100, kind: 'text' }
 ];
 
-/** 订单费用明细列，与「1.1.订单图表」的下钻列保持一致。 */
-const ACCRUAL_COLUMNS: DetailColumn[] = [
-  { prop: 'accrualId', label: '应计费用编号', width: 150, kind: 'text' },
-  { prop: 'accrualDate', label: '应计日期', width: 108, kind: 'date' },
-  { prop: 'serviceGroup', label: '费用分组', width: 120, kind: 'text' },
-  { prop: 'accrualType', label: '应计类型', width: 160, kind: 'text' },
-  { prop: 'sellerSku', label: '卖家货号', width: 140, kind: 'text' },
-  { prop: 'productName', label: '商品名称', minWidth: 180, kind: 'text' },
-  { prop: 'quantity', label: '数量', width: 88, align: 'right', kind: 'number', format: row => dec(row.quantity, 0) },
-  {
-    prop: 'totalAmountRub',
-    label: '总计（RUB）',
-    width: 128,
-    align: 'right',
-    kind: 'number',
-    negative: true,
-    format: row => money(row.totalAmountRub)
-  }
-];
-
 /** 退货明细列，与「2.1.退货图表」的下钻列保持一致。 */
 const RETURNS_COLUMNS: DetailColumn[] = [
   { prop: 'shipmentNo', label: '货件编号', width: 150, kind: 'text' },
@@ -246,7 +219,76 @@ const RETURNS_COLUMNS: DetailColumn[] = [
   { prop: 'buyerComment', label: '买家评论', minWidth: 150, kind: 'text' }
 ];
 
-const KIND_LABEL: Record<SummaryKind, string> = { supply: '交货明细', accrual: '订单费用明细', returns: '退货明细' };
+/**
+ * 订单数量明细列：订单侧的柱高来自产品月报的「售出件数」，下钻必须落在同一张表上，
+ * 所以这里展示的是产品月报行（一个月 + 一个货号一行），行数能与柱高逐件对上。
+ */
+const MONTHLY_COLUMNS: DetailColumn[] = [
+  { prop: 'recordName', label: '月份 / 货号', width: 180, kind: 'text' },
+  {
+    prop: 'localProductName',
+    label: '品名',
+    minWidth: 160,
+    kind: 'text',
+    format: row => row.localProductName || row.productName || '—'
+  },
+  { prop: 'soldUnits', label: '售出件数', width: 100, align: 'right', kind: 'number', format: row => int(row.soldUnits) },
+  {
+    prop: 'salesRecordCount',
+    label: '销售记录数',
+    width: 110,
+    align: 'right',
+    kind: 'number',
+    format: row => int(row.salesRecordCount)
+  },
+  {
+    prop: 'salesRevenueRub',
+    label: '销售收入(₽)',
+    width: 124,
+    align: 'right',
+    kind: 'number',
+    negative: true,
+    format: row => money(row.salesRevenueRub)
+  },
+  {
+    prop: 'discountPointsRub',
+    label: '折扣积分(₽)',
+    width: 124,
+    align: 'right',
+    kind: 'number',
+    negative: true,
+    format: row => money(row.discountPointsRub)
+  },
+  {
+    prop: 'netSalesIncomeRub',
+    label: '净销售收入(₽)',
+    width: 132,
+    align: 'right',
+    kind: 'number',
+    negative: true,
+    format: row => money(row.netSalesIncomeRub)
+  },
+  {
+    prop: 'finalTakeHomeRub',
+    label: '最终到手(₽)',
+    width: 124,
+    align: 'right',
+    kind: 'number',
+    negative: true,
+    format: row => money(row.finalTakeHomeRub)
+  },
+  {
+    prop: 'finalTakeHomeCny',
+    label: '最终到手(¥)',
+    width: 124,
+    align: 'right',
+    kind: 'number',
+    negative: true,
+    format: row => money(row.finalTakeHomeCny)
+  }
+];
+
+const KIND_LABEL: Record<SummaryKind, string> = { supply: '交货明细', accrual: '订单数量明细', returns: '退货明细' };
 
 const shopStore = useOzonShopStore();
 const chartData = ref<OzonSummaryChartVO>();
@@ -325,7 +367,7 @@ const detailImage = computed(() => (detailProduct.value ? imageUrl(detailProduct
 const detailKindLabel = computed(() => KIND_LABEL[detailKind.value]);
 const detailTitle = computed(() => detailKindLabel.value + ' · ' + detailName.value);
 const activeColumns = computed<DetailColumn[]>(() =>
-  detailKind.value === 'accrual' ? ACCRUAL_COLUMNS : detailKind.value === 'returns' ? RETURNS_COLUMNS : SUPPLY_COLUMNS
+  detailKind.value === 'accrual' ? MONTHLY_COLUMNS : detailKind.value === 'returns' ? RETURNS_COLUMNS : SUPPLY_COLUMNS
 );
 
 /**
@@ -393,12 +435,6 @@ function int(value: number | string | null | undefined) {
   if (!Number.isFinite(number)) return '0';
   return Math.round(number).toLocaleString('zh-CN');
 }
-/** 数量展示：可按小数位取整。 */
-function dec(value: number | string | null | undefined, digits = 0) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return '0';
-  return number.toLocaleString('zh-CN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-}
 /** 金额展示：带千分位，最多两位小数。 */
 function money(value: number | string | null | undefined) {
   const number = Number(value);
@@ -457,7 +493,7 @@ function monthTooltip(params: CallbackDataParams | CallbackDataParams[]) {
   return [
     item.month,
     '交货：' + int(monthSupplyQty(item)) + ' 件（' + Number(item.supplyOrders || 0) + ' 个申请）',
-    '订单数量：' + int(monthAccrualQty(item)) + ' 件（' + Number(item.accrualCount || 0) + ' 个应计费用编号）',
+    '订单数量：' + int(monthAccrualQty(item)) + ' 件（' + Number(item.accrualCount || 0) + ' 笔销售记录）',
     '退货：' + int(monthReturnQty(item)) + ' 件（' + Number(item.returnShipments || 0) + ' 行货件）',
     '点击柱子查看对应明细'
   ].join('\n');
@@ -470,7 +506,7 @@ function tooltip(params: CallbackDataParams | CallbackDataParams[]) {
   return [
     productName(item) + (code ? '（' + code + '）' : ''),
     '交货：' + int(supplyQty(item)) + ' 件（' + Number(item.supplyOrders || 0) + ' 个申请）',
-    '订单数量：' + int(accrualQty(item)) + ' 件（' + Number(item.accrualCount || 0) + ' 个应计费用编号）',
+    '订单数量：' + int(accrualQty(item)) + ' 件（' + Number(item.accrualCount || 0) + ' 笔销售记录）',
     '退货：' + int(returnQty(item)) + ' 件（' + Number(item.returnShipments || 0) + ' 行货件）',
     '点击柱子查看对应明细'
   ].join('\n');
@@ -725,13 +761,18 @@ async function loadDetail() {
     } else {
       query.pageNum = detailPage.value;
       query.pageSize = DETAIL_PAGE_SIZE;
-      // 图表里的「未标注货号」= seller_sku 为空，用哨兵值下发（空串会被 tansParams 丢弃）；不点货号柱时不下发。
-      if (detailProduct.value) query.sku = detailProduct.value.sku || NO_SKU_TOKEN;
+      // 订单侧口径是产品月报的「售出件数」，下钻必须落在同一张表上，行数才能与柱高对上。
+      // 产品月报按「统计月份 + 卖家货号」筛选：月份要补成当月 1 号（后端字段是 LocalDate）；不点货号柱时不下发货号。
+      if (monthValue) {
+        delete query.month;
+        query.reportMonth = monthValue + '-01';
+      }
+      if (detailProduct.value?.sku) query.sellerSku = detailProduct.value.sku;
       if (detailSortProp.value) {
         query.orderByColumn = detailSortProp.value;
         query.isAsc = detailSortOrder.value === 'ascending' ? 'ascending' : 'descending';
       }
-      const result = await listAccrualChartRows(scopeReportQuery(query, shopStore.selectedId));
+      const result = await listReport('monthly', scopeReportQuery(query, shopStore.selectedId));
       if (version !== detailVersion || disposed) return;
       detailRows.value = (result.data?.rows ?? []) as unknown as DetailRow[];
       detailTotal.value = Number(result.data?.total ?? 0);

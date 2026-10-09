@@ -175,8 +175,9 @@ export interface OzonSummaryMonthVO {
   month: string;
   supplyQty: number | string | null;
   supplyOrders: number | string | null;
-  /** 订单数量：同一个应计费用编号只计一次（归月取该编号最早的应计日期）。 */
+  /** 订单数量：产品月报的「售出件数」（sold_units），即该货号当月真实卖出多少件。 */
   accrualQty: number | string | null;
+  /** 销售记录数（产品月报 sales_record_count 的合计）。 */
   accrualCount: number | string | null;
   returnQty: number | string | null;
   returnShipments: number | string | null;
@@ -191,8 +192,9 @@ export interface OzonSummaryProductVO {
   attachmentJson: string | null;
   supplyQty: number | string | null;
   supplyOrders: number | string | null;
-  /** 订单数量：同一个应计费用编号只计一次，与交货 / 退货同为「件」。 */
+  /** 订单数量：产品月报的「售出件数」，与交货 / 退货同为「件」。 */
   accrualQty: number | string | null;
+  /** 销售记录数（产品月报 sales_record_count 的合计）。 */
   accrualCount: number | string | null;
   returnQty: number | string | null;
   returnShipments: number | string | null;
