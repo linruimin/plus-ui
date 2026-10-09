@@ -144,6 +144,32 @@ export interface OzonReturnsChartVO {
   products: OzonReturnsStatsVO[];
 }
 
+/** 订单图表：单个月份的订单费用净额汇总（归月口径＝明细应计日期）。 */
+export interface OzonAccrualMonthVO {
+  month: string;
+  totalAmountRub: number | string | null;
+  accrualCount: number | string | null;
+}
+
+/** 订单图表：按卖家货号归并的订单费用净额；点击柱子用 sku 下钻明细行。 */
+export interface OzonAccrualProductVO {
+  /** 卖家货号；明细没有货号时为空串，页面显示为「未标注货号」。 */
+  sku: string | null;
+  /** 产品库品名（按卖家货号关联 product.article_no）。 */
+  productName: string | null;
+  /** 明细自带的商品名称，产品库没有对应记录时兜底展示。 */
+  ozonProductName: string | null;
+  totalAmountRub: number | string | null;
+  accrualCount: number | string | null;
+  attachmentJson: string | null;
+}
+
+/** 订单图表：一次查询返回的两个维度汇总（金额口径＝总计 RUB 净额）。 */
+export interface OzonAccrualChartVO {
+  months: OzonAccrualMonthVO[];
+  products: OzonAccrualProductVO[];
+}
+
 /** 退货图表下钻明细行：与「8.退货」业务视图同源的字段。 */
 export interface OzonReturnsRowVO extends ReportRow {
   id: number | string | null;
