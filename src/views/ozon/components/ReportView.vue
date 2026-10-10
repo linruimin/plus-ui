@@ -183,13 +183,13 @@ function applyColumnFormat(value: ColumnFormat | undefined, column: ReportColumn
 const SKELETON_BAR_WIDTHS=[92,64,120,78,104,58,86,110,70,96];
 function skeletonBarWidth(index:number){return SKELETON_BAR_WIDTHS[(index-1)%SKELETON_BAR_WIDTHS.length]+'px';}
 /**
- * 跟随首页「全局店铺」的报表 —— 只有数据里真有店铺维度的才算：
- * - accruals（订单费用明细）、supply（交货申请明细）、returns-report（退货月报）都有 shop_id
- * - ⚠️ monthly（产品月报）/ trend（销售趋势）的数据源 ozon_product_monthly_summary **没有店铺列**，
- *   传了也没用，索性不传（要支持得先给表加 shop_id + 改唯一键 + 重导历史数据）。
- * 2026-10-10 之前这里只认 accruals，导致「交货申请明细 / 退货月报」切店铺后面板纹丝不动。
+ * 跟随首页「全局店铺」的报表 —— 数据里真有店铺维度的才算：
+ * - accruals（订单费用明细）、supply（交货申请明细）、returns-report（退货月报）本来就有 shop_id
+ * - monthly（产品月报）：2026-10-10 起 ozon_product_monthly_summary 加了 shop_id 并重跑了历史数据，
+ *   同步脚本（ozon_accruals_daily_sync → analyze/import 两个脚本）也改为按店铺分别提炼。
+ * - ⚠️ trend（销售趋势）不走这张表，暂不在此列。
  */
-const SHOP_SCOPED_KINDS: ReportKind[] = ['accruals', 'supply', 'returns-report'];
+const SHOP_SCOPED_KINDS: ReportKind[] = ['accruals', 'supply', 'returns-report', 'monthly'];
 const shopScoped = computed(() => SHOP_SCOPED_KINDS.includes(kind.value));
 /** 视图数据缓存 key：同一个报表 + 同一个视图 + 同一个店铺作用域才算同一份数据。 */
 /** 缓存 key 带账号 id（basePreferenceKey 已含）+ 页面 + 视图 + 店铺作用域。 */

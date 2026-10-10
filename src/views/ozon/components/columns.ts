@@ -140,6 +140,8 @@ export function gridColumnWidth(column: ReportColumn): number {
 export const reportColumns: Record<string, ReportColumn[]> = {
   "monthly": [
     { prop: 'attachmentJson', label: '货品图片', width: 124, attachment: true },
+    // 「全部店铺」时靠它分辨每行属于哪个店（月报表自 2026-10-10 起有 shop_id 维度）。
+    { prop: 'shopName', label: '店铺', width: 120 },
     { prop: 'recordName', label: '记录名称', width: 160 },
     { prop: 'localProductName', label: '品名', width: 150 },
     { prop: 'unitTakeHomeCny', label: '单个最终到手', width: 87, decimal: true, numeric: true, precision: 2 },
