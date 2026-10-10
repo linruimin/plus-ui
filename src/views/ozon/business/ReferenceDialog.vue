@@ -11,10 +11,14 @@
    <el-button type="primary" @click="search">查询</el-button>
    <small class="reference-tip">{{ multiple ? '勾选记录（可多选，也可直接点行），选完点确定回填' : '点击任意一行即可选中并回填' }}</small>
   </div>
-  <el-table ref="gridRef" v-loading="loading" :data="rows" height="380" border row-key="id" :row-class-name="rowClass" @row-click="onRowClick" @row-dblclick="onRowDblClick" @selection-change="onSelectionChange">
+  <el-table ref="gridRef" v-loading="loading" :data="rows" height="440" border row-key="id" :row-class-name="rowClass" @row-click="onRowClick" @row-dblclick="onRowDblClick" @selection-change="onSelectionChange">
    <el-table-column v-if="multiple" type="selection" width="46" />
-   <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" :width="column.width" show-overflow-tooltip>
-    <template #default="{row}">{{ cellText(row,column) }}</template>
+   <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" :width="column.attachment ? 56 : column.width" :show-overflow-tooltip="!column.attachment">
+    <template #default="{row}">
+     <!-- 货品图片列直接渲染缩略图（点图放大，组件内置 @click.stop，不会误触发行勾选）。 -->
+     <AttachmentImages v-if="column.attachment" :value="row[column.prop]" />
+     <span v-else>{{ cellText(row,column) }}</span>
+    </template>
    </el-table-column>
    <template #empty><span class="reference-empty">{{ loading ? '读取中…' : '没有可选择的' + targetTitle }}</span></template>
   </el-table>
@@ -37,13 +41,17 @@ import {useOzonShopStore} from '@/store/modules/ozonShop';
 import type {BusinessRow} from '@/api/ozon/business';
 import {businessConfig,shortLabel} from './config';
 import type {BusinessField} from './config';
+import AttachmentImages from '../components/AttachmentImages.vue';
 import {formatNumericColumn} from '../components/columns';
-/** 关联字段的候选列优先展示这几列，未配置的表回退到前几列可见列。 */
+/**
+ * 关联字段的候选列优先展示这几列，未配置的表回退到前几列可见列。
+ * ⚠️ 图片列（attachmentJson）与名称列放最前面 —— 用户要「一眼认出是哪个货」（2026-10-10）。
+ */
 const preferredColumns:Record<string,string[]>={
- purchase_order:['orderNo','productId','shopId','quantity','actualPaid','payStatus','paidAt'],
- product:['productNo','name','sku','articleNo','shopId','unitPerPack','backendPrice'],
- replenishment:['replenishNo','productId','expectedDate','expectedQty','method','remark'],
- shipment:['shipmentNo','purchaseId','logisticsMethod','boxes','perBoxQty','shippedAt'],
+ purchase_order:['attachmentJson','orderNo','productId','shopId','quantity','actualPaid','payStatus'],
+ product:['attachmentJson','name','productNo','sku','articleNo','shopId'],
+ replenishment:['attachmentJson','replenishNo','productId','expectedDate','expectedQty','method','remark'],
+ shipment:['attachmentJson','productName','shipmentNo','logisticsMethod','boxes','perBoxQty','shippedAt'],
  logistics_fee:['feeNo','feeType','amount','feeDate','paidFlag','shopId'],
  other_fee:['feeNo','feeType','amount','feeDate','shopId','remark'],
  logistics_provider:['code','name','warehouse','bank','customerSystem'],
@@ -70,9 +78,10 @@ const title=computed(()=>selected.value.length?selected.value.map(item=>item.lab
 const columns=computed<BusinessField[]>(()=>{
  const config=businessConfig[props.target];
  if(!config)return [];
- const preferred=(preferredColumns[props.target]||[]).map(prop=>config.columns.find(column=>column.prop===prop)).filter((column):column is BusinessField=>!!column&&!column.attachment&&!column.multiple);
- const picked=preferred.length?preferred:config.columns.filter(column=>column.prop!=='id'&&!column.attachment&&!column.multiple&&!column.readonly);
- return picked.slice(0,6);
+ // ⚠️ 图片列（attachment）要保留 —— 下面渲染成缩略图；多值列仍排除（一行放不下）。
+ const preferred=(preferredColumns[props.target]||[]).map(prop=>config.columns.find(column=>column.prop===prop)).filter((column):column is BusinessField=>!!column&&!column.multiple);
+ const picked=preferred.length?preferred:config.columns.filter(column=>column.prop!=='id'&&!column.multiple&&!column.readonly);
+ return picked.slice(0,7);
 });
 function cellText(row:BusinessRow,column:BusinessField){
  if(column.reference){const label=row[column.prop+'Label'];return label===null||label===undefined||label===''?(row[column.prop]??'—'):String(label);}
@@ -185,4 +194,9 @@ function submit(value?:string|string[],row?:BusinessRow){
 <style>
 /* 弹窗内表格挂在 body 上，选中行高亮需要全局选择器。 */
 .reference-row-picked td.el-table__cell{background:var(--el-color-primary-light-9)!important}
+/* 弹窗里的货品图片用更小的缩略图，免得 48px 图把行撑到 56px、一屏看不了几行。
+   ⚠️ AttachmentImages 的样式是 scoped 的（选择器带 [data-v-xxx]），这里必须用 !important 才盖得住。 */
+.reference-picker-dialog .attachment-images{min-height:auto!important;padding:0!important}
+.reference-picker-dialog .attachment-thumbnail{width:40px!important;height:40px!important;flex:0 0 40px!important}
+.reference-picker-dialog .el-table__body-wrapper td.el-table__cell{padding:2px 0}
 </style>
