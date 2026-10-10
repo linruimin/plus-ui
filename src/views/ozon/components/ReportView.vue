@@ -4,7 +4,7 @@
       <template #header>
         <div ref="toolbarRef" class="table-toolbar">
           <div class="view-controls">
-            <el-tag v-if="kind === 'accruals' && shopStore.selectedName" type="primary" size="small">{{ shopStore.selectedName }}</el-tag>
+            <el-tag v-if="shopScoped && shopStore.selectedName" type="primary" size="small">{{ shopStore.selectedName }}</el-tag>
             <ViewSelector v-if="!trendOnly" :model-value="viewManager.activeId.value" :views="viewManager.views.value" @select="selectSavedView" @action="savedViewAction" />
             <span v-if="accrualView !== 'chart'" class="record-count">共 {{ total.toLocaleString() }} 条</span>
             <span v-if="refreshingView" class="view-refreshing" role="status"><i class="view-refreshing-dot"></i>数据更新中</span>
@@ -182,10 +182,19 @@ function applyColumnFormat(value: ColumnFormat | undefined, column: ReportColumn
 /** 表格骨架行里灰条的宽度（按列序号循环取值），只为视觉自然，不代表真实列宽。 */
 const SKELETON_BAR_WIDTHS=[92,64,120,78,104,58,86,110,70,96];
 function skeletonBarWidth(index:number){return SKELETON_BAR_WIDTHS[(index-1)%SKELETON_BAR_WIDTHS.length]+'px';}
+/**
+ * 跟随首页「全局店铺」的报表 —— 只有数据里真有店铺维度的才算：
+ * - accruals（订单费用明细）、supply（交货申请明细）、returns-report（退货月报）都有 shop_id
+ * - ⚠️ monthly（产品月报）/ trend（销售趋势）的数据源 ozon_product_monthly_summary **没有店铺列**，
+ *   传了也没用，索性不传（要支持得先给表加 shop_id + 改唯一键 + 重导历史数据）。
+ * 2026-10-10 之前这里只认 accruals，导致「交货申请明细 / 退货月报」切店铺后面板纹丝不动。
+ */
+const SHOP_SCOPED_KINDS: ReportKind[] = ['accruals', 'supply', 'returns-report'];
+const shopScoped = computed(() => SHOP_SCOPED_KINDS.includes(kind.value));
 /** 视图数据缓存 key：同一个报表 + 同一个视图 + 同一个店铺作用域才算同一份数据。 */
 /** 缓存 key 带账号 id（basePreferenceKey 已含）+ 页面 + 视图 + 店铺作用域。 */
 function viewCacheKey(viewId: string) {
-  const shop = kind.value === 'accruals' ? shopStore.selectedId : '';
+  const shop = shopScoped.value ? shopStore.selectedId : '';
   return basePreferenceKey + '|' + viewId + '|' + (shop || 'all');
 }
 /** 首次进入页面时也用上缓存：命中就先渲染，随后 getList 在后台校正。 */
@@ -431,10 +440,10 @@ async function getList() {
   setLoading(true); error.value = '';
   const cacheKey = viewCacheKey(viewManager.activeId.value), cacheable = query.pageNum === 1;
   try {
-    // 订单费用明细跟随全局所选店铺；其余报表不含店铺维度。
+    // 订单费用明细 / 交货申请明细 / 退货月报跟随首页所选店铺；产品月报与销售趋势没有店铺维度。
     const params = scopeReportQuery(
       { ...query, startDate: dateRange.value?.[0], endDate: dateRange.value?.[1] },
-      kind.value === 'accruals' ? shopStore.selectedId : undefined
+      shopScoped.value ? shopStore.selectedId : undefined
     );
     if (kind.value === 'accruals' && accrualView.value === 'chart') {
       trendQuery.value = params;
@@ -502,9 +511,9 @@ function showDetail(row: ReportRow) {
   }
 }
 restorePreferences();
-// 切换全局店铺后订单费用明细需要重新查询。
+// 切换全局店铺后，带店铺维度的报表（订单费用明细 / 交货申请明细 / 退货月报）需要重新查询。
 watch(() => shopStore.selectionKey, () => {
-  if (kind.value !== 'accruals') return;
+  if (!shopScoped.value) return;
   requestVersion++;
   refreshingView.value = false;
   rows.value = []; total.value = 0; query.pageNum = 1;
@@ -557,7 +566,8 @@ async function savedViewAction(action: 'add' | 'rename' | 'remove' | 'reset') { 
 trendQuery.value = { ...query, startDate: dateRange.value?.[0], endDate: dateRange.value?.[1] };
 onMounted(async () => {
   await nextTick();
-  if (kind.value === 'accruals') void shopStore.loadShops().catch(() => {});
+  // 带店铺维度的报表都要把店铺列表加载出来（店铺 tag 显示 + 校验所选店铺是否还在）。
+  if (shopScoped.value) void shopStore.loadShops().catch(() => {});
   layoutObserver = new ResizeObserver(updateTableHeight);
   if (toolbarRef.value) layoutObserver.observe(toolbarRef.value);
   if (footerRef.value) layoutObserver.observe(footerRef.value);
