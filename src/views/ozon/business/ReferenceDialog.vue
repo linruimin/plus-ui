@@ -9,18 +9,21 @@
   <div class="reference-toolbar">
    <el-input v-model="keyword" :placeholder="'搜索' + targetTitle" clearable :prefix-icon="Search" class="reference-search" @keyup.enter="search"/>
    <el-button type="primary" @click="search">查询</el-button>
-   <small class="reference-tip">{{ multiple ? '点击行可多选，选完点确定回填' : '点击任意一行即可选中并回填' }}</small>
+   <small class="reference-tip">{{ multiple ? '勾选记录（可多选，也可直接点行），选完点确定回填' : '点击任意一行即可选中并回填' }}</small>
   </div>
-  <el-table ref="gridRef" v-loading="loading" :data="rows" height="380" border row-key="id" :row-class-name="rowClass" @row-click="onRowClick" @row-dblclick="onRowDblClick">
+  <el-table ref="gridRef" v-loading="loading" :data="rows" height="380" border row-key="id" :row-class-name="rowClass" @row-click="onRowClick" @row-dblclick="onRowDblClick" @selection-change="onSelectionChange">
+   <el-table-column v-if="multiple" type="selection" width="46" />
    <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" :width="column.width" show-overflow-tooltip>
     <template #default="{row}">{{ cellText(row,column) }}</template>
    </el-table-column>
    <template #empty><span class="reference-empty">{{ loading ? '读取中…' : '没有可选择的' + targetTitle }}</span></template>
   </el-table>
-  <pagination v-show="total>0" v-model:page="page" v-model:limit="size" :total="total" :auto-scroll="false" @pagination="load"/>
+  <pagination v-show="total>0" v-model:page="page" v-model:limit="size" :total="total" :page-sizes="[100, 200, 500]" :auto-scroll="false" @pagination="load"/>
   <template #footer>
    <el-button @click="visible=false">取消</el-button>
-   <el-button type="primary" :disabled="!pending.length" @click="submit">{{ multiple ? '确定（' + pending.length + '）' : '确定' }}</el-button>
+   <!-- ⚠️ 必须写成 submit()：写成 @click="submit" 时 Vue 会把 PointerEvent 当成第一个参数传进去 →
+        回填成 "[object PointerEvent]" → 前端拿它去请求 /shipment/[object PointerEvent] → 400 Illegal Path Character。 -->
+   <el-button type="primary" :disabled="!pending.length" @click="submit()">{{ multiple ? '确定（' + pending.length + '）' : '确定' }}</el-button>
   </template>
  </el-dialog>
  </div>
@@ -52,7 +55,7 @@ const preferredColumns:Record<string,string[]>={
 const props=withDefaults(defineProps<{modelValue?:string|number|Array<string|number>|null;target:string;multiple?:boolean;disabled?:boolean;placeholder?:string;label?:string}>(),{placeholder:'点击选择'});
 const emit=defineEmits<{(e:'update:modelValue',value:any):void}>();
 const shopStore=useOzonShopStore();
-const visible=ref(false),loading=ref(false),keyword=ref(''),rows=ref<BusinessRow[]>([]),total=ref(0),page=ref(1),size=ref(20);
+const visible=ref(false),loading=ref(false),keyword=ref(''),rows=ref<BusinessRow[]>([]),total=ref(0),page=ref(1),size=ref(100);
 const pending=ref<string[]>([]);
 const labelCache=ref<Record<string,string>>({});
 const gridRef=ref();
@@ -125,12 +128,36 @@ async function load(){
  }catch{rows.value=[];total.value=0;ElMessage.error('读取'+targetTitle.value+'失败，请重试');}
  finally{loading.value=false;}
 }
-function onRowClick(row:BusinessRow){
+function onRowClick(row:BusinessRow,_column?:unknown,event?:MouseEvent){
  const id=String(row.id);
  if(!props.multiple){submit(String(row.id),row);return;}
- pending.value=pending.value.includes(id)?pending.value.filter(item=>item!==id):[...pending.value,id];
+ // 点在勾选框本体上时交给 el-table 自己处理，否则 row-click 会再 toggle 一次、等于没选。
+ if(event&&(event.target as HTMLElement)?.closest?.('.el-checkbox'))return;
+ gridRef.value?.toggleRowSelection?.(row);   // 走复选框，selection-change 会同步 pending
 }
 function onRowDblClick(row:BusinessRow){submit(props.multiple?[...new Set([...pending.value,String(row.id)])]:String(row.id),row);}
+/**
+ * 勾选框 ↔ pending 双向同步。
+ * 表格里勾选的那部分以 selection 为准，**不在当前页的已选项要保留** —— 否则翻页或再次查询后
+ * 之前勾的（其它页的）会被 selection-change 覆盖掉，多选就跨不了页。
+ */
+function onSelectionChange(selection:BusinessRow[]){
+ const currentPage=new Set(rows.value.map(row=>String(row.id)));
+ const others=pending.value.filter(id=>!currentPage.has(id));
+ pending.value=[...others,...selection.map(row=>String(row.id))];
+}
+/** rows 变化（打开弹窗 / 翻页 / 查询）后，把已选项在新一页里勾回来。 */
+function syncSelection(){
+ void nextTick(()=>{
+  const grid=gridRef.value;
+  if(!grid?.clearSelection)return;
+  const keep=[...pending.value];
+  grid.clearSelection();
+  for(const row of rows.value)if(keep.includes(String(row.id)))grid.toggleRowSelection?.(row,true);
+  pending.value=keep;
+ });
+}
+watch(rows,syncSelection);
 function submit(value?:string|string[],row?:BusinessRow){
  const result=value===undefined?(props.multiple?pending.value:pending.value.slice(0,1)):value;
  const ids=Array.isArray(result)?result:[result];
