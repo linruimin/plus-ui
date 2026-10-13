@@ -11,10 +11,6 @@
             <span v-if="loading" class="view-refreshing" role="status"><i class="view-refreshing-dot"></i>数据更新中</span>
           </div>
           <div class="view-actions">
-            <el-select v-model="serviceGroup" placeholder="全部费用分组" class="group-select" aria-label="费用分组" @change="load">
-              <el-option label="全部费用分组" value="" />
-              <el-option v-for="option in GROUP_OPTIONS" :key="option" :label="option" :value="option" />
-            </el-select>
             <el-select v-model="month" placeholder="全部月份" class="month-select" aria-label="应计月份" @change="load">
               <el-option label="全部月份" value="" />
               <el-option v-for="item in monthOptions" :key="item" :label="item" :value="item" />
@@ -32,7 +28,7 @@
         金额口径统一为<b>「总计（RUB）」净额</b>：销售额与各项应计费用正负相抵后的合计。
         上图<b>按应计日期所属月份（按月统计）</b>汇总，下图按货号（按「卖家货号」归并）汇总，柱高 = 净额、柱顶数字为金额；
         货号的 x 轴标签是货品图片与品名（图片取自产品库「货品图片」，未维护图片的只显示品名/货号）。
-        「费用分组」筛选同时作用于两个图与下钻明细，「月份」筛选作用于按货号图与下钻明细；鼠标悬停可看费用编号数，
+        「月份」筛选作用于按货号图与下钻明细；鼠标悬停可看费用编号数，
         <b>点击柱子可展开对应的订单费用明细</b>（明细为后端分页，每页 20 行）。净额可能为负，负数柱子向下画。
       </p>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" class="notice" />
@@ -80,7 +76,6 @@
           <div class="detail-sub">
             <template v-if="detailProduct">卖家货号：{{ detailProduct.sku || '未标注货号' }}</template>
             <template v-else>应计月份：{{ detailMonth || '—' }}</template>
-            <template v-if="serviceGroup"> · 费用分组：{{ serviceGroup }}</template>
           </div>
         </div>
         <div class="detail-stats">
@@ -144,8 +139,6 @@ import { attachmentFiles } from '../components/attachmentFiles';
 
 echarts.use([BarChart, GridComponent, TooltipComponent, AriaComponent, CanvasRenderer]);
 
-/** 费用分组取值，与「1.订单费用明细」的筛选口径一致（ozon_accruals.service_group）。 */
-const GROUP_OPTIONS = ['销售', 'Ozon佣金', '配送服务', '合作伙伴服务', '推广与广告', 'FBO服务', '其他服务及罚款', '退货', '其他应计', '补偿与扣回'];
 /** 明细后端分页每页行数；单货号单月最多 3.5 万行，必须后端分页。 */
 const DETAIL_PAGE_SIZE = 20;
 /** 产品图 x 轴每个货号占用的最小宽度，保证图片与品名不被挤在一起。 */
@@ -167,7 +160,6 @@ const shopStore = useOzonShopStore();
 const chartData = ref<OzonAccrualChartVO>();
 const loading = ref(false);
 const error = ref('');
-const serviceGroup = ref('');
 const month = ref('');
 const sortMode = ref<'amount' | 'name'>('amount');
 const showImage = ref(true);
@@ -200,7 +192,7 @@ const monthOptions = computed(() => months.value.map(item => item.month).slice()
 /** 月份图的合计。 */
 const monthTotal = computed(() => months.value.reduce((sum, item) => sum + monthAmount(item), 0));
 /**
- * 表头净额取「按货号排行」的合计 —— 它跟随全部筛选（费用分组 + 月份），与下面那张图始终一致。
+ * 表头净额取「按货号排行」的合计 —— 它跟随月份筛选，与下面那张图始终一致。
  */
 const totalAmount = computed(() => items.value.reduce((sum, item) => sum + productAmount(item), 0));
 const totalText = computed(() => money(totalAmount.value));
@@ -312,9 +304,9 @@ async function load() {
   error.value = '';
   try {
     await shopStore.ensureLoaded().catch(() => {});
-    // 不选费用分组/月份时不下发对应参数，后端即不过滤。
+    // 不选月份时不下发 month，后端即不过滤。
+    // （原先还有一个「费用分组」筛选，已整体去掉：它会把一笔销售的费用拆散，且月报口径无法承载。）
     const query: ReportQuery = {};
-    if (serviceGroup.value) query.serviceGroup = serviceGroup.value;
     if (month.value) query.month = month.value;
     const result = await listAccrualChart(scopeReportQuery(query, shopStore.selectedId));
     if (version !== requestVersion || disposed) return;
@@ -484,7 +476,6 @@ async function loadDetail() {
   try {
     // 明细必须沿用图表的筛选口径，否则行数与柱高对不上。
     const query: ReportQuery = { pageNum: detailPage.value, pageSize: DETAIL_PAGE_SIZE };
-    if (serviceGroup.value) query.serviceGroup = serviceGroup.value;
     const monthValue = detailMonth.value || month.value;
     if (monthValue) query.month = monthValue;
     // 图表里的「未标注货号」= seller_sku 为空，用哨兵值下发（空串会被 tansParams 丢弃，等于不传，
@@ -550,7 +541,6 @@ onBeforeUnmount(() => {
 .view-controls { flex: 1 1 auto; min-width: 0; }
 .view-actions { flex: none; margin-left: auto; flex-wrap: wrap; }
 .view-actions :deep(.el-button + .el-button) { margin-left: 0; }
-.group-select { width: 150px; }
 .month-select { width: 116px; }
 .record-count { font-size: 12px; color: var(--el-text-color-secondary); white-space: nowrap; }
 .description { font-size: 12px; line-height: 1.6; color: var(--el-text-color-secondary); margin: 8px 0 10px; }
