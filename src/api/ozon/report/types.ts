@@ -52,6 +52,30 @@ export interface OzonMonthlyReportVO extends ReportRow {
   importedAt: string | null;
 }
 
+/**
+ * 订单图表(1.1) 下钻的一行 = **一个应计项目**（店铺 × 应计月 × 卖家货号 × 应计费用编号）。
+ * 数据源是下钻预聚合表 ozon_accrual_item，粒度与图表柱子相同，所以弹窗「净额合计」严格等于柱高。
+ * `accrualId` 为空串 = 该月该货号下**没有编号的费用**合成项（源表 133 行全在「未标注货号」柱里），
+ * 前端显示「（无编号）」。
+ */
+export interface OzonAccrualItemVO extends ReportRow {
+  rowId: string | null;
+  shopId: number | string | null;
+  shopName: string | null;
+  accrualId: string | null;
+  statMonth: string | null;
+  sellerSku: string | null;
+  productName: string | null;
+  firstAccrualDate: string | null;
+  accrualDate: string | null;
+  positiveAmountRub: number | string | null;
+  negativeAmountRub: number | string | null;
+  totalAmountRub: number | string | null;
+  afterTaxAmountRub: number | string | null;
+  totalAmountCny: number | string | null;
+  recordCount: number | string | null;
+}
+
 export interface OzonAccrualReportVO extends ReportRow {
   rowId: string | null;
   accrualId: string | null;

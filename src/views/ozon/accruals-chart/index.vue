@@ -29,7 +29,8 @@
         上图<b>按应计日期所属月份（按月统计）</b>汇总，下图按货号（按「卖家货号」归并）汇总，柱高 = 净额、柱顶数字为金额；
         货号的 x 轴标签是货品图片与品名（图片取自产品库「货品图片」，未维护图片的只显示品名/货号）。
         「月份」筛选作用于按货号图与下钻明细；鼠标悬停可看费用编号数，
-        <b>点击柱子可展开对应的订单费用明细</b>（明细为后端分页，每页 20 行）。净额可能为负，负数柱子向下画。
+        <b>点击柱子可展开对应的应计项目</b>（一行 = 一条应计费用编号，与「订单费用明细」同口径；
+        后端分页，每页 20 个）。净额可能为负，负数柱子向下画。
       </p>
       <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" class="notice" />
       <el-empty v-else-if="!loading && !months.length && !items.length" description="没有符合条件的订单费用记录" />
@@ -75,12 +76,12 @@
           <div class="detail-name">{{ detailName }}</div>
           <div class="detail-sub">
             <template v-if="detailProduct">卖家货号：{{ detailProduct.sku || '未标注货号' }}</template>
-            <template v-else>应计月份：{{ detailMonth || '—' }}</template>
+            <template v-else>应计月份：{{ detailMonth || month || '—' }}</template>
           </div>
         </div>
         <div class="detail-stats">
           <span>净额合计 <b>{{ detailTotalText }}</b> RUB</span>
-          <span>明细 <b>{{ detailTotal }}</b> 行</span>
+          <span>应计项目 <b>{{ detailTotal }}</b> 个</span>
         </div>
       </div>
       <el-alert v-if="detailError" :title="detailError" type="error" show-icon :closable="false" class="notice" />
@@ -90,26 +91,47 @@
         size="small"
         border
         height="460"
-        :empty-text="detailLoading ? '明细加载中…' : '没有符合条件的订单费用明细'"
+        :empty-text="detailLoading ? '应计项目加载中…' : '没有符合条件的应计项目'"
         @sort-change="onDetailSortChange"
       >
-        <el-table-column type="index" label="#" width="56" align="center" :index="detailIndex" />
-        <el-table-column prop="accrualId" label="应计费用编号" width="150" sortable="custom" show-overflow-tooltip />
-        <el-table-column prop="accrualDate" label="应计日期" width="108" sortable="custom" />
-        <el-table-column prop="serviceGroup" label="费用分组" width="120" sortable="custom" show-overflow-tooltip />
-        <el-table-column prop="accrualType" label="应计类型" width="160" sortable="custom" show-overflow-tooltip />
-        <el-table-column prop="sellerSku" label="卖家货号" width="140" sortable="custom" show-overflow-tooltip />
-        <el-table-column prop="productName" label="商品名称" min-width="180" sortable="custom" show-overflow-tooltip />
-        <el-table-column prop="quantity" label="数量" width="88" align="right" sortable="custom">
-          <template #default="{ row }">{{ decimal(row.quantity, 0) }}</template>
+        <el-table-column type="index" label="#" width="52" align="center" :index="detailIndex" />
+        <el-table-column prop="accrualId" label="应计费用编号" width="150" sortable="custom" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span :class="{ muted: !row.accrualId }">{{ row.accrualId || '（无编号）' }}</span>
+          </template>
         </el-table-column>
-        <el-table-column prop="totalAmountRub" label="总计（RUB）" width="128" align="right" sortable="custom">
+        <!-- 点月份柱时整列都是同一个月，没必要占宽度；点货号柱且不限月份时才显示 -->
+        <el-table-column v-if="!detailMonth && !month" prop="statMonth" label="应计月份" width="100" sortable="custom" />
+        <el-table-column prop="accrualDate" label="最近应计日期" width="118" sortable="custom" />
+        <!-- 点货号柱时整列都是同一个货号，隐藏；点月份柱才需要区分货号 -->
+        <el-table-column v-if="!detailProduct" prop="sellerSku" label="卖家货号" width="140" sortable="custom" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span :class="{ muted: !row.sellerSku }">{{ row.sellerSku || '未标注货号' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="productName" label="商品名称" min-width="200" sortable="custom" show-overflow-tooltip />
+        <el-table-column prop="recordCount" label="明细条数" width="92" align="right" sortable="custom">
+          <template #default="{ row }">{{ decimal(row.recordCount, 0) }}</template>
+        </el-table-column>
+        <el-table-column prop="positiveAmountRub" label="销售额（RUB）" width="124" align="right" sortable="custom">
+          <template #default="{ row }">{{ money(row.positiveAmountRub) }}</template>
+        </el-table-column>
+        <el-table-column prop="negativeAmountRub" label="应计费用（RUB）" width="134" align="right" sortable="custom">
+          <template #default="{ row }"><span :class="{ negative: Number(row.negativeAmountRub) < 0 }">{{ money(row.negativeAmountRub) }}</span></template>
+        </el-table-column>
+        <el-table-column prop="totalAmountRub" label="总计（RUB）" width="124" align="right" sortable="custom">
           <template #default="{ row }"><span :class="{ negative: Number(row.totalAmountRub) < 0 }">{{ money(row.totalAmountRub) }}</span></template>
+        </el-table-column>
+        <el-table-column prop="afterTaxAmountRub" label="总计-税后（RUB）" width="142" align="right" sortable="custom">
+          <template #default="{ row }"><span :class="{ negative: Number(row.afterTaxAmountRub) < 0 }">{{ money(row.afterTaxAmountRub) }}</span></template>
+        </el-table-column>
+        <el-table-column prop="totalAmountCny" label="总计-人民币（CNY）" width="150" align="right" sortable="custom">
+          <template #default="{ row }"><span :class="{ negative: Number(row.totalAmountCny) < 0 }">{{ money(row.totalAmountCny) }}</span></template>
         </el-table-column>
       </el-table>
       <div class="detail-foot">
         <span class="record-count">
-          本页 {{ pageTotalText }} RUB · 全部 {{ detailTotal }} 行
+          本页 {{ pageTotalText }} RUB · 全部 {{ detailTotal }} 个应计项目
         </span>
         <el-pagination
           v-model:current-page="detailPage"
@@ -133,7 +155,7 @@ import { GridComponent, TooltipComponent, AriaComponent } from 'echarts/componen
 import { CanvasRenderer } from 'echarts/renderers';
 import type { CallbackDataParams } from 'echarts/types/dist/shared';
 import { listAccrualChart, listAccrualChartRows, scopeReportQuery } from '@/api/ozon/report';
-import type { OzonAccrualChartVO, OzonAccrualMonthVO, OzonAccrualProductVO, OzonAccrualReportVO, ReportQuery } from '@/api/ozon/report/types';
+import type { OzonAccrualChartVO, OzonAccrualMonthVO, OzonAccrualProductVO, OzonAccrualItemVO, ReportQuery } from '@/api/ozon/report/types';
 import { useOzonShopStore } from '@/store/modules/ozonShop';
 import { attachmentFiles } from '../components/attachmentFiles';
 
@@ -175,7 +197,7 @@ let active = true;
 const detailVisible = ref(false);
 const detailProduct = ref<OzonAccrualProductVO>();
 const detailMonth = ref('');
-const detailRows = ref<OzonAccrualReportVO[]>([]);
+const detailRows = ref<OzonAccrualItemVO[]>([]);
 const detailTotal = ref(0);
 const detailBackAmount = ref(0);
 const detailLoading = ref(false);
@@ -215,10 +237,10 @@ const chartLabel = computed(
 );
 
 const detailName = computed(() =>
-  detailMonth.value && !detailProduct.value ? detailMonth.value + ' 订单费用明细' : detailProduct.value ? productName(detailProduct.value) : ''
+  detailMonth.value && !detailProduct.value ? detailMonth.value + ' 应计项目' : detailProduct.value ? productName(detailProduct.value) : ''
 );
 const detailImage = computed(() => (detailProduct.value ? imageUrl(detailProduct.value) : ''));
-const detailTitle = computed(() => '订单费用明细 · ' + detailName.value);
+const detailTitle = computed(() => '应计项目 · ' + detailName.value);
 const detailTotalText = computed(() => money(detailBackAmount.value));
 const pageTotalText = computed(() => money(detailRows.value.reduce((sum, row) => sum + rowAmount(row), 0)));
 
@@ -230,7 +252,7 @@ function productAmount(item: OzonAccrualProductVO) {
   const value = Number(item.totalAmountRub);
   return Number.isFinite(value) ? value : 0;
 }
-function rowAmount(row: OzonAccrualReportVO) {
+function rowAmount(row: OzonAccrualItemVO) {
   const value = Number(row.totalAmountRub);
   return Number.isFinite(value) ? value : 0;
 }
@@ -282,7 +304,7 @@ function monthTooltip(params: CallbackDataParams | CallbackDataParams[]) {
     item.month,
     '净额：' + money(monthAmount(item)) + ' RUB',
     '费用编号数：' + Number(item.accrualCount || 0) + ' 个',
-    '点击查看当月订单费用明细'
+    '点击查看当月应计项目'
   ].join('\n');
 }
 function tooltip(params: CallbackDataParams | CallbackDataParams[]) {
@@ -294,7 +316,7 @@ function tooltip(params: CallbackDataParams | CallbackDataParams[]) {
     productName(item) + (code ? '（' + code + '）' : ''),
     '净额：' + money(productAmount(item)) + ' RUB',
     '费用编号数：' + Number(item.accrualCount || 0) + ' 个',
-    '点击查看该货号的订单费用明细'
+    '点击查看该货号的应计项目'
   ].join('\n');
 }
 
@@ -490,7 +512,7 @@ async function loadDetail() {
     detailRows.value = result.data?.rows ?? [];
     detailTotal.value = Number(result.data?.total ?? 0);
   } catch {
-    if (version === detailVersion && !disposed) detailError.value = '订单费用明细查询失败，请关闭弹窗后重试。';
+    if (version === detailVersion && !disposed) detailError.value = '应计项目查询失败，请关闭弹窗后重试。';
   } finally {
     if (version === detailVersion && !disposed) detailLoading.value = false;
   }
@@ -561,4 +583,6 @@ onBeforeUnmount(() => {
 .detail-stats b { font-size: 14px; color: var(--el-color-primary); }
 .detail-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; }
 .negative { color: var(--el-color-danger); }
+/* 「（无编号）」「未标注货号」这类兜底文案弱化，避免看成一等数据 */
+.muted { color: var(--el-text-color-placeholder); }
 </style>
