@@ -423,27 +423,25 @@ const summaryMethod=computed(()=>{
 });
 function rowKey(row:BusinessRow){return String(row.__key??row.id);}
 function display(row:BusinessRow,field:BusinessField){let v=row[field.prop];if(field.reference){v=row[field.prop+'Label']||v;if(Array.isArray(v))return v.length?v.join('、'):'—';}if(v===null||v===undefined||v==='')return '—';if(field.customId)return String(v);if(field.numeric&&!field.reference)return formatNumericColumn(v,field);if(field.format?.date)return formatDateColumn(v,field);return String(v);}
-/** 飞书多维表格的**官方选项标签色板**（浅底 + 同色系深字，2026-10-24 用户要求按飞书取色）：
- *  蓝 #E1EAFF/#245BDB、青 #D9F5F5/#0F7B7B、橙 #FFE9D6/#A85400、红 #FDE2E2/#C02B2B、
- *  紫 #EDE2FE/#6237BF、绿 #D9F5D6/#237B19、粉 #FEE2F1/#B02B6B、灰 #EFF0F1/#4E5969、
- *  黄 #FFF7D6/#8A6D00、靛 #E0E6FB/#3B4CA8。按选项在 field.options 里的顺序取色（循环）。
- *  ⚠️ 飞书的标签文字**不加粗**（regular 400），见 .cell-tag 里的显式声明。 */
-const TAG_PALETTE:[string,string][]=[
- ['#e1eaff','#245bdb'],['#d9f5f5','#0f7b7b'],['#ffe9d6','#a85400'],['#fde2e2','#c02b2b'],
- ['#ede2fe','#6237bf'],['#d9f5d6','#237b19'],['#fee2f1','#b02b6b'],['#eff0f1','#4e5969'],
- ['#fff7d6','#8a6d00'],['#e0e6fb','#3b4ca8'],
-];
+/** 飞书多维表格的**官方选项标签底色**（2026-10-24 用户第三次调整：**标签文字全部用黑色**）：
+ *  蓝 #E1EAFF、青 #D9F5F5、橙 #FFE9D6、红 #FDE2E2、紫 #EDE2FE、
+ *  绿 #D9F5D6、粉 #FEE2F1、灰 #EFF0F1、黄 #FFF7D6、靛 #E0E6FB。按选项在 field.options 里的顺序取色（循环）。
+ *  ⚠️ 只靠**底色**区分选项，文字统一标准黑，字重 regular 400（不加粗），见 .cell-tag 里的显式声明。 */
+const TAG_BG=['#e1eaff','#d9f5f5','#ffe9d6','#fde2e2','#ede2fe','#d9f5d6','#fee2f1','#eff0f1','#fff7d6','#e0e6fb'];
+/** 标签文字色：飞书多维表格里单选/多选标签的字就是标准黑（不跟随底色变深色）。 */
+const TAG_TEXT='#1f2329';
 /** 多值单元格的 hover 提示：把所有标签拼起来（表格里只显示第一个 + N）。 */
 function tagTitle(row:BusinessRow,field:BusinessField){return cellTags(row,field).map(t=>t.text).join('、');}
 function textHash(s:string){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
-/** 单个标签的配色：选项字段按「选项序号」固定取色（同值永远同色）；引用字段无选项定义 → 统一中性色。 */
+/** 单个标签的配色：选项字段按「选项序号」固定取色（同值永远同色）；引用字段无选项定义 → 统一中性色。
+ *  文字一律 TAG_TEXT 黑色。 */
 function tagStyle(text:string,field:BusinessField){
  if(field.options?.length){
   const i=field.options.indexOf(text);
-  const [bg,fg]=TAG_PALETTE[(i>=0?i:textHash(text))%TAG_PALETTE.length];
-  return {background:bg,color:fg};
+  const bg=TAG_BG[(i>=0?i:textHash(text))%TAG_BG.length];
+  return {background:bg,color:TAG_TEXT};
  }
- return {background:'#f0f2f5',color:'#4e5969'};
+ return {background:'#f0f2f5',color:TAG_TEXT};
 }
 /** 单元格里要显示成胶囊标签的内容（多维表格口径）：
  *  ① field.options 的单选字段 → 一个彩色胶囊；
@@ -677,11 +675,12 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();seedFromViewCache();vo
    ⚠️ 用 display:inline（不是 inline-block/flex）+ 父级 text-overflow:ellipsis：出货订单一行常有多条，
    宽度不够时由浏览器打「…」，不会把第三个框拦腰截断看起来像数据损坏。 */
 /* 单选/多选标签：对齐飞书多维表格 —— 椭圆胶囊（24px 高 / 14px 字（与单元格正文同级）/ 12px 圆角 / 10px 内边距）。
-   颜色由 cellTags() 以 inline style 给出（低饱和浅底 + 暗调文字）：选项字段按「选项序号」固定取色，引用字段统一中性灰。 */
+   颜色由 cellTags() 以 inline style 给出：浅色底按「选项序号」固定取色（区分选项），
+   文字**统一标签黑 #1f2329**（与单元格正文同色，2026-10-24 用户要求），引用字段底色统一中性灰。 */
 .cell-tags{display:flex;align-items:center;gap:6px;overflow:hidden;line-height:24px;min-width:0}
 .cell-tag{display:inline-block;height:24px;padding:0 10px;border-radius:12px;font-size:14px;font-weight:400;line-height:24px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
-/* 多值折叠后的「+N」：中性灰，不抢主标签的颜色 */
-.cell-tag-more{padding:0 8px;background:#f0f2f5;color:#4e5969}
+/* 多值折叠后的「+N」：中性灰底，文字同样用标签黑 */
+.cell-tag-more{padding:0 8px;background:#f0f2f5;color:#1f2329}
 
 .preset-filters{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}.preset-filters-label{font-size:12px;color:var(--el-text-color-secondary)}.business-view :deep(.business-group-row){--el-table-tr-bg-color:var(--el-fill-color-light);font-weight:400}
 .toolbar,.actions,.row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar.business-toolbar{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto}.business-toolbar .actions,.business-toolbar .count{flex:none}.business-toolbar .actions{flex-wrap:nowrap}.business-toolbar .count{margin-right:0;white-space:nowrap}.business-view :deep(.el-card__header){padding:6px 12px}.business-view :deep(.el-card__body){padding:2px 12px 12px}.toolbar{justify-content:space-between}.count{font-size:12px;color:var(--el-text-color-secondary);margin-right:auto}.filters{max-height:60vh;overflow:auto;padding:4px 8px}.filters .el-form{margin-top:14px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}.form-grid :deep(.el-select),.form-grid :deep(.el-date-editor){width:100%}.row-actions{flex-wrap:nowrap;gap:2px}.row-actions :deep(.el-button){margin:0}.business-view :deep(.ozon-data-grid){--ozon-grid-text:#1f2329;--ozon-grid-heading:#1f2329;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Tahoma,'PingFang SC','Microsoft YaHei',Arial,'Hiragino Sans GB',sans-serif;font-size:14px;font-weight:400;line-height:20px;color:var(--ozon-grid-text);--el-table-text-color:var(--ozon-grid-text);--el-table-header-text-color:var(--ozon-grid-heading)}
