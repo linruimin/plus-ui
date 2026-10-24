@@ -178,13 +178,14 @@ function submit(value?:string|string[],row?:BusinessRow){
 </script>
 <style scoped>
 .reference-dialog-root{width:100%;min-width:0}
-.reference-field{display:flex;align-items:center;gap:4px;min-height:22px;width:100%;min-width:0;cursor:pointer;overflow:hidden;border-radius:4px}
+.reference-field{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:1px 0;min-height:22px;width:100%;min-width:0;cursor:pointer;overflow:hidden;border-radius:4px}
 .reference-field:hover{background:var(--el-color-primary-light-9)}
 .reference-field.is-disabled{cursor:not-allowed}
 .reference-field.is-disabled:hover{background:none}
-.reference-chip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 6px;border-radius:3px;background:var(--el-color-primary-light-9);color:var(--el-color-primary);font-size:12px;line-height:16px}
+/* 灰色小框对齐飞书多维表格（与表格里 .cell-chip 同款）；flex:0 0 auto 保证编号不被挤成「20260…」。 */
+.reference-chip{flex:0 0 auto;white-space:nowrap;padding:1px 6px;border-radius:4px;background:var(--el-fill-color-light);color:var(--el-text-color-primary);font-size:12px;line-height:16px}
 .reference-placeholder{color:var(--el-text-color-placeholder)}
-.reference-clear{margin-left:auto;flex:none;border:0;background:none;padding:0 2px;color:var(--el-text-color-placeholder);cursor:pointer;font-size:14px;line-height:1}
+.reference-clear{flex:none;border:0;background:none;padding:0 2px;color:var(--el-text-color-placeholder);cursor:pointer;font-size:14px;line-height:1}
 .reference-clear:hover{color:var(--el-color-danger)}
 .reference-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .reference-search{max-width:320px}
