@@ -423,12 +423,15 @@ const summaryMethod=computed(()=>{
 });
 function rowKey(row:BusinessRow){return String(row.__key??row.id);}
 function display(row:BusinessRow,field:BusinessField){let v=row[field.prop];if(field.reference){v=row[field.prop+'Label']||v;if(Array.isArray(v))return v.length?v.join('、'):'—';}if(v===null||v===undefined||v==='')return '—';if(field.customId)return String(v);if(field.numeric&&!field.reference)return formatNumericColumn(v,field);if(field.format?.date)return formatDateColumn(v,field);return String(v);}
-/** 飞书多维表格的选项色盘：**低饱和浅底 + 暗调同色系文字**（不刺眼，仍能靠色相区分），
- *  按选项在 field.options 里的顺序取色（循环）。标签尺寸见 .cell-tag（24px 高 / 14px 字 / 12px 圆角）。 */
+/** 飞书多维表格的**官方选项标签色板**（浅底 + 同色系深字，2026-10-24 用户要求按飞书取色）：
+ *  蓝 #E1EAFF/#245BDB、青 #D9F5F5/#0F7B7B、橙 #FFE9D6/#A85400、红 #FDE2E2/#C02B2B、
+ *  紫 #EDE2FE/#6237BF、绿 #D9F5D6/#237B19、粉 #FEE2F1/#B02B6B、灰 #EFF0F1/#4E5969、
+ *  黄 #FFF7D6/#8A6D00、靛 #E0E6FB/#3B4CA8。按选项在 field.options 里的顺序取色（循环）。
+ *  ⚠️ 飞书的标签文字**不加粗**（regular 400），见 .cell-tag 里的显式声明。 */
 const TAG_PALETTE:[string,string][]=[
- ['#e9effc','#3f5a8f'],['#e6f4ef','#35705f'],['#fdf0e3','#8a5a2b'],['#fdeceb','#9c4a45'],
- ['#f2edfb','#5f4f8f'],['#e9f5ea','#3d6b46'],['#fbecf3','#8a4b66'],['#eef1f5','#4e5969'],
- ['#f8f2e3','#7d6a2c'],['#e8f2f7','#3b6070'],
+ ['#e1eaff','#245bdb'],['#d9f5f5','#0f7b7b'],['#ffe9d6','#a85400'],['#fde2e2','#c02b2b'],
+ ['#ede2fe','#6237bf'],['#d9f5d6','#237b19'],['#fee2f1','#b02b6b'],['#eff0f1','#4e5969'],
+ ['#fff7d6','#8a6d00'],['#e0e6fb','#3b4ca8'],
 ];
 /** 多值单元格的 hover 提示：把所有标签拼起来（表格里只显示第一个 + N）。 */
 function tagTitle(row:BusinessRow,field:BusinessField){return cellTags(row,field).map(t=>t.text).join('、');}
@@ -676,7 +679,7 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();seedFromViewCache();vo
 /* 单选/多选标签：对齐飞书多维表格 —— 椭圆胶囊（24px 高 / 14px 字（与单元格正文同级）/ 12px 圆角 / 10px 内边距）。
    颜色由 cellTags() 以 inline style 给出（低饱和浅底 + 暗调文字）：选项字段按「选项序号」固定取色，引用字段统一中性灰。 */
 .cell-tags{display:flex;align-items:center;gap:6px;overflow:hidden;line-height:24px;min-width:0}
-.cell-tag{display:inline-block;height:24px;padding:0 10px;border-radius:12px;font-size:14px;line-height:24px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+.cell-tag{display:inline-block;height:24px;padding:0 10px;border-radius:12px;font-size:14px;font-weight:400;line-height:24px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
 /* 多值折叠后的「+N」：中性灰，不抢主标签的颜色 */
 .cell-tag-more{padding:0 8px;background:#f0f2f5;color:#4e5969}
 
