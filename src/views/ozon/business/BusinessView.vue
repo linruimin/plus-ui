@@ -48,10 +48,10 @@
         <el-date-picker v-else-if="inputField(field).type==='date'" v-model="drafts[row.id][field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" clearable :disabled="rowBusy[row.id]"/>
         <el-input v-else v-model="drafts[row.id][field.prop]" :maxlength="inputField(field).maxLength" :disabled="rowBusy[row.id]" :aria-label="field.label"/>
        </template>
-       <span v-else-if="cellTags(row,field).length" class="cell-tags"><span v-for="(tag,ti) in cellTags(row,field)" :key="ti" class="cell-tag" :style="tag.style" :title="tag.text">{{ tag.text }}</span></span>
+       <span v-else-if="cellTags(row,field).length" class="cell-tags" :title="tagTitle(row,field)"><span class="cell-tag" :style="cellTags(row,field)[0].style">{{ cellTags(row,field)[0].text }}</span><span v-if="cellTags(row,field).length>1" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-1 }}</span></span>
        <span v-else>{{ rowBusy[row.id]?'读取中…':display(row,field) }}</span>
       </div>
-      <span v-else-if="cellTags(row,field).length" class="cell-tags"><span v-for="(tag,ti) in cellTags(row,field)" :key="ti" class="cell-tag" :style="tag.style" :title="tag.text">{{ tag.text }}</span></span>
+      <span v-else-if="cellTags(row,field).length" class="cell-tags" :title="tagTitle(row,field)"><span class="cell-tag" :style="cellTags(row,field)[0].style">{{ cellTags(row,field)[0].text }}</span><span v-if="cellTags(row,field).length>1" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-1 }}</span></span>
       <span v-else>{{ display(row,field) }}</span>
      </template>
     </el-table-column>
@@ -423,13 +423,15 @@ const summaryMethod=computed(()=>{
 });
 function rowKey(row:BusinessRow){return String(row.__key??row.id);}
 function display(row:BusinessRow,field:BusinessField){let v=row[field.prop];if(field.reference){v=row[field.prop+'Label']||v;if(Array.isArray(v))return v.length?v.join('、'):'—';}if(v===null||v===undefined||v==='')return '—';if(field.customId)return String(v);if(field.numeric&&!field.reference)return formatNumericColumn(v,field);if(field.format?.date)return formatDateColumn(v,field);return String(v);}
-/** 飞书多维表格的选项色盘：浅底 + 同色系深字，按选项在 field.options 里的顺序取色（循环）。
- *  参考多维表格的单选/多选标签：椭圆胶囊、20px 高、12px 字号、无边框。 */
+/** 飞书多维表格的选项色盘：**低饱和浅底 + 暗调同色系文字**（不刺眼，仍能靠色相区分），
+ *  按选项在 field.options 里的顺序取色（循环）。标签尺寸见 .cell-tag（24px 高 / 14px 字 / 12px 圆角）。 */
 const TAG_PALETTE:[string,string][]=[
- ['#e8f0ff','#1f5bd6'],['#e0f6ef','#0b8f78'],['#fff1e0','#a35d00'],['#ffeaea','#c02c2b'],
- ['#f1eaff','#6a3fd6'],['#e5f8ea','#0a7f3f'],['#ffe9f3','#b82b74'],['#e6f4ff','#1a6bc4'],
- ['#eef0f4','#4a5361'],['#fdf6dd','#8a6a00'],
+ ['#e9effc','#3f5a8f'],['#e6f4ef','#35705f'],['#fdf0e3','#8a5a2b'],['#fdeceb','#9c4a45'],
+ ['#f2edfb','#5f4f8f'],['#e9f5ea','#3d6b46'],['#fbecf3','#8a4b66'],['#eef1f5','#4e5969'],
+ ['#f8f2e3','#7d6a2c'],['#e8f2f7','#3b6070'],
 ];
+/** 多值单元格的 hover 提示：把所有标签拼起来（表格里只显示第一个 + N）。 */
+function tagTitle(row:BusinessRow,field:BusinessField){return cellTags(row,field).map(t=>t.text).join('、');}
 function textHash(s:string){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
 /** 单个标签的配色：选项字段按「选项序号」固定取色（同值永远同色）；引用字段无选项定义 → 统一中性色。 */
 function tagStyle(text:string,field:BusinessField){
@@ -438,7 +440,7 @@ function tagStyle(text:string,field:BusinessField){
   const [bg,fg]=TAG_PALETTE[(i>=0?i:textHash(text))%TAG_PALETTE.length];
   return {background:bg,color:fg};
  }
- return {background:'#eef2f8',color:'#4a5361'};
+ return {background:'#f0f2f5',color:'#4e5969'};
 }
 /** 单元格里要显示成胶囊标签的内容（多维表格口径）：
  *  ① field.options 的单选字段 → 一个彩色胶囊；
@@ -671,10 +673,12 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();seedFromViewCache();vo
 /* chip:true 的关联列（物流费用 → 出货订单）：编号用灰色圆角小框，对齐飞书多维表格观感。
    ⚠️ 用 display:inline（不是 inline-block/flex）+ 父级 text-overflow:ellipsis：出货订单一行常有多条，
    宽度不够时由浏览器打「…」，不会把第三个框拦腰截断看起来像数据损坏。 */
-/* 单选/多选标签：对齐飞书多维表格 —— 椭圆胶囊（20px 高 / 12px 字 / 无边框 / 8px 内边距）。
-   颜色由 cellTags() 以 inline style 给出：选项字段按「选项序号」取色盘（同值永远同色），引用字段统一中性色。 */
-.cell-tags{display:flex;align-items:center;gap:4px;overflow:hidden;line-height:20px}
-.cell-tag{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;font-size:12px;line-height:1;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+/* 单选/多选标签：对齐飞书多维表格 —— 椭圆胶囊（24px 高 / 14px 字（与单元格正文同级）/ 12px 圆角 / 10px 内边距）。
+   颜色由 cellTags() 以 inline style 给出（低饱和浅底 + 暗调文字）：选项字段按「选项序号」固定取色，引用字段统一中性灰。 */
+.cell-tags{display:flex;align-items:center;gap:6px;overflow:hidden;line-height:24px;min-width:0}
+.cell-tag{display:inline-block;height:24px;padding:0 10px;border-radius:12px;font-size:14px;line-height:24px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+/* 多值折叠后的「+N」：中性灰，不抢主标签的颜色 */
+.cell-tag-more{padding:0 8px;background:#f0f2f5;color:#4e5969}
 
 .preset-filters{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}.preset-filters-label{font-size:12px;color:var(--el-text-color-secondary)}.business-view :deep(.business-group-row){--el-table-tr-bg-color:var(--el-fill-color-light);font-weight:400}
 .toolbar,.actions,.row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar.business-toolbar{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto}.business-toolbar .actions,.business-toolbar .count{flex:none}.business-toolbar .actions{flex-wrap:nowrap}.business-toolbar .count{margin-right:0;white-space:nowrap}.business-view :deep(.el-card__header){padding:6px 12px}.business-view :deep(.el-card__body){padding:2px 12px 12px}.toolbar{justify-content:space-between}.count{font-size:12px;color:var(--el-text-color-secondary);margin-right:auto}.filters{max-height:60vh;overflow:auto;padding:4px 8px}.filters .el-form{margin-top:14px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}.form-grid :deep(.el-select),.form-grid :deep(.el-date-editor){width:100%}.row-actions{flex-wrap:nowrap;gap:2px}.row-actions :deep(.el-button){margin:0}.business-view :deep(.ozon-data-grid){--ozon-grid-text:#1f2329;--ozon-grid-heading:#1f2329;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Tahoma,'PingFang SC','Microsoft YaHei',Arial,'Hiragino Sans GB',sans-serif;font-size:14px;font-weight:400;line-height:20px;color:var(--ozon-grid-text);--el-table-text-color:var(--ozon-grid-text);--el-table-header-text-color:var(--ozon-grid-heading)}
