@@ -1742,6 +1742,7 @@
         "label": "出货订单",
         "reference": "shipment",
         "multiple": true,
+        "chip": true,
         "width": 220
       }
     ]
