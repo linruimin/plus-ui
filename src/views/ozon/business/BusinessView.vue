@@ -48,10 +48,10 @@
         <el-date-picker v-else-if="inputField(field).type==='date'" v-model="drafts[row.id][field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" clearable :disabled="rowBusy[row.id]"/>
         <el-input v-else v-model="drafts[row.id][field.prop]" :maxlength="inputField(field).maxLength" :disabled="rowBusy[row.id]" :aria-label="field.label"/>
        </template>
-       <span v-else-if="cellTags(row,field).length" class="cell-tags" :title="tagTitle(row,field)"><span class="cell-tag" :style="cellTags(row,field)[0].style">{{ cellTags(row,field)[0].text }}</span><span v-if="cellTags(row,field).length>1" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-1 }}</span></span>
+       <span v-else-if="cellTags(row,field).length" :class="cellTags(row,field).length>1?'cell-tags multi':'cell-tags'" :title="tagTitle(row,field)"><span v-for="(t,ti) in visibleTags(row,field)" :key="ti" class="cell-tag" :style="t.style">{{ t.text }}</span><span v-if="cellTags(row,field).length>MAX_VISIBLE_TAGS" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-MAX_VISIBLE_TAGS }}</span></span>
        <span v-else>{{ rowBusy[row.id]?'读取中…':display(row,field) }}</span>
       </div>
-      <span v-else-if="cellTags(row,field).length" class="cell-tags" :title="tagTitle(row,field)"><span class="cell-tag" :style="cellTags(row,field)[0].style">{{ cellTags(row,field)[0].text }}</span><span v-if="cellTags(row,field).length>1" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-1 }}</span></span>
+      <span v-else-if="cellTags(row,field).length" :class="cellTags(row,field).length>1?'cell-tags multi':'cell-tags'" :title="tagTitle(row,field)"><span v-for="(t,ti) in visibleTags(row,field)" :key="ti" class="cell-tag" :style="t.style">{{ t.text }}</span><span v-if="cellTags(row,field).length>MAX_VISIBLE_TAGS" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-MAX_VISIBLE_TAGS }}</span></span>
       <span v-else>{{ display(row,field) }}</span>
      </template>
     </el-table-column>
@@ -432,6 +432,9 @@ const TAG_BG=['#e1eaff','#d9f5f5','#ffe9d6','#fde2e2','#ede2fe','#d9f5d6','#fee2
 const TAG_TEXT='#1f2329';
 /** 多值单元格的 hover 提示：把所有标签拼起来（表格里只显示第一个 + N）。 */
 function tagTitle(row:BusinessRow,field:BusinessField){return cellTags(row,field).map(t=>t.text).join('、');}
+/** 单元格里最多横排几个标签：2 个（用户要求「物流方式有两个就要两个框」），再多就折叠成「+N」。 */
+const MAX_VISIBLE_TAGS=2;
+function visibleTags(row:BusinessRow,field:BusinessField){return cellTags(row,field).slice(0,MAX_VISIBLE_TAGS);}
 function textHash(s:string){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
 /** 单个标签的配色：选项字段按「选项序号」固定取色（同值永远同色）；引用字段无选项定义 → 统一中性色。
  *  文字一律 TAG_TEXT 黑色。 */
@@ -444,15 +447,15 @@ function tagStyle(text:string,field:BusinessField){
  return {background:'#f0f2f5',color:TAG_TEXT};
 }
 /** 单元格里要显示成胶囊标签的内容（多维表格口径）：
- *  ① field.options 的单选字段 → 一个彩色胶囊；
+ *  ① field.options 的选项字段 → 彩色胶囊；值里存了多条（如物流方式「超光速,立德」）→ 拆成各自独立的多个胶囊；
  *  ② field.reference 引用字段（单选/多选）→ 按后端 xxxLabel 拆成多个胶囊（后端用「、」连接；旧标签带「编号·订单号」取编号）。
  *  非上述类型返回空数组，仍然走纯文本 display()。 */
 function cellTags(row:BusinessRow,field:BusinessField):{text:string;style:Record<string,string>}[]{
  if(field.options?.length){
   const v=row[field.prop];
   if(v===null||v===undefined||v==='')return [];
-  const text=String(v);
-  return [{text,style:tagStyle(text,field)}];
+  // 多值选项（物流方式等）：一个单元格里可能用「,」「，」「、」存了两个以上选项 → 每个选项一个框。
+  return String(v).split(/[,，、]/).map(x=>x.trim()).filter(Boolean).map(t=>({text:t,style:tagStyle(t,field)}));
  }
  if(field.reference){
   const label=row[field.prop+'Label'];
@@ -679,6 +682,8 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();seedFromViewCache();vo
    文字**统一标签黑 #1f2329**（与单元格正文同色，2026-10-24 用户要求），引用字段底色统一中性灰。 */
 .cell-tags{display:flex;align-items:center;gap:6px;overflow:hidden;line-height:24px;min-width:0}
 .cell-tag{display:inline-block;height:24px;padding:0 10px;border-radius:12px;font-size:14px;font-weight:400;line-height:24px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
+/* 多值（≥2 个框）：各占最多半列宽，保证两个框都完整出现（长值出省略号），不会出现被裁掉半个框 */
+.cell-tags.multi .cell-tag{max-width:calc(50% - 3px)}
 /* 多值折叠后的「+N」：中性灰底，文字同样用标签黑 */
 .cell-tag-more{padding:0 8px;background:#f0f2f5;color:#1f2329}
 
