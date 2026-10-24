@@ -48,10 +48,10 @@
         <el-date-picker v-else-if="inputField(field).type==='date'" v-model="drafts[row.id][field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" clearable :disabled="rowBusy[row.id]"/>
         <el-input v-else v-model="drafts[row.id][field.prop]" :maxlength="inputField(field).maxLength" :disabled="rowBusy[row.id]" :aria-label="field.label"/>
        </template>
-       <span v-else-if="cellChips(row,field).length" class="cell-chips"><span v-for="(chip,ci) in cellChips(row,field)" :key="ci" class="cell-chip" :title="chip">{{ chip }}</span></span>
+       <span v-else-if="cellTags(row,field).length" class="cell-tags"><span v-for="(tag,ti) in cellTags(row,field)" :key="ti" class="cell-tag" :style="tag.style" :title="tag.text">{{ tag.text }}</span></span>
        <span v-else>{{ rowBusy[row.id]?'读取中…':display(row,field) }}</span>
       </div>
-      <span v-else-if="cellChips(row,field).length" class="cell-chips"><span v-for="(chip,ci) in cellChips(row,field)" :key="ci" class="cell-chip" :title="chip">{{ chip }}</span></span>
+      <span v-else-if="cellTags(row,field).length" class="cell-tags"><span v-for="(tag,ti) in cellTags(row,field)" :key="ti" class="cell-tag" :style="tag.style" :title="tag.text">{{ tag.text }}</span></span>
       <span v-else>{{ display(row,field) }}</span>
      </template>
     </el-table-column>
@@ -423,14 +423,42 @@ const summaryMethod=computed(()=>{
 });
 function rowKey(row:BusinessRow){return String(row.__key??row.id);}
 function display(row:BusinessRow,field:BusinessField){let v=row[field.prop];if(field.reference){v=row[field.prop+'Label']||v;if(Array.isArray(v))return v.length?v.join('、'):'—';}if(v===null||v===undefined||v==='')return '—';if(field.customId)return String(v);if(field.numeric&&!field.reference)return formatNumericColumn(v,field);if(field.format?.date)return formatDateColumn(v,field);return String(v);}
-/** chip:true 的列（如物流费用的「出货订单」）把标签拆成一个一个灰色小框，对齐多维表格观感。
- *  拆分口径：后端 shipments 标签用「、」分隔；旧的「编号 · 订单号」标签在 . 处截断，只留编号。 */
-function cellChips(row:BusinessRow,field:BusinessField):string[]{
- if(!field.chip)return [];
- const label=row[field.prop+'Label'];
- const text=Array.isArray(label)?label.join('、'):(label===null||label===undefined?'':String(label));
- if(!text||text==='—')return [];
- return text.split('、').map(part=>part.split('·')[0].trim()).filter(Boolean);
+/** 飞书多维表格的选项色盘：浅底 + 同色系深字，按选项在 field.options 里的顺序取色（循环）。
+ *  参考多维表格的单选/多选标签：椭圆胶囊、20px 高、12px 字号、无边框。 */
+const TAG_PALETTE:[string,string][]=[
+ ['#e8f0ff','#1f5bd6'],['#e0f6ef','#0b8f78'],['#fff1e0','#a35d00'],['#ffeaea','#c02c2b'],
+ ['#f1eaff','#6a3fd6'],['#e5f8ea','#0a7f3f'],['#ffe9f3','#b82b74'],['#e6f4ff','#1a6bc4'],
+ ['#eef0f4','#4a5361'],['#fdf6dd','#8a6a00'],
+];
+function textHash(s:string){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
+/** 单个标签的配色：选项字段按「选项序号」固定取色（同值永远同色）；引用字段无选项定义 → 统一中性色。 */
+function tagStyle(text:string,field:BusinessField){
+ if(field.options?.length){
+  const i=field.options.indexOf(text);
+  const [bg,fg]=TAG_PALETTE[(i>=0?i:textHash(text))%TAG_PALETTE.length];
+  return {background:bg,color:fg};
+ }
+ return {background:'#eef2f8',color:'#4a5361'};
+}
+/** 单元格里要显示成胶囊标签的内容（多维表格口径）：
+ *  ① field.options 的单选字段 → 一个彩色胶囊；
+ *  ② field.reference 引用字段（单选/多选）→ 按后端 xxxLabel 拆成多个胶囊（后端用「、」连接；旧标签带「编号·订单号」取编号）。
+ *  非上述类型返回空数组，仍然走纯文本 display()。 */
+function cellTags(row:BusinessRow,field:BusinessField):{text:string;style:Record<string,string>}[]{
+ if(field.options?.length){
+  const v=row[field.prop];
+  if(v===null||v===undefined||v==='')return [];
+  const text=String(v);
+  return [{text,style:tagStyle(text,field)}];
+ }
+ if(field.reference){
+  const label=row[field.prop+'Label'];
+  let parts:string[]=[];
+  if(Array.isArray(label))parts=label.map(x=>String(x));
+  else if(label!==null&&label!==undefined&&label!=='')parts=String(label).split('、');
+  return parts.map(p=>p.split('·')[0].trim()).filter(Boolean).map(t=>({text:t,style:tagStyle(t,field)}));
+ }
+ return [];
 }
 const formRef=ref<FormInstance>(),dialogOpen=ref(false),saving=ref(false),editing=ref(false);const form=ref<BusinessRow>({});
 const columnMenu=ref<{x:number;y:number;field:BusinessField}|null>(null);
@@ -643,8 +671,10 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();seedFromViewCache();vo
 /* chip:true 的关联列（物流费用 → 出货订单）：编号用灰色圆角小框，对齐飞书多维表格观感。
    ⚠️ 用 display:inline（不是 inline-block/flex）+ 父级 text-overflow:ellipsis：出货订单一行常有多条，
    宽度不够时由浏览器打「…」，不会把第三个框拦腰截断看起来像数据损坏。 */
-.cell-chips{display:block;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cell-chip{display:inline;padding:2px 6px;margin-right:4px;border-radius:4px;background:var(--el-fill-color-light);color:var(--el-text-color-primary);font-size:12px}
+/* 单选/多选标签：对齐飞书多维表格 —— 椭圆胶囊（20px 高 / 12px 字 / 无边框 / 8px 内边距）。
+   颜色由 cellTags() 以 inline style 给出：选项字段按「选项序号」取色盘（同值永远同色），引用字段统一中性色。 */
+.cell-tags{display:flex;align-items:center;gap:4px;overflow:hidden;line-height:20px}
+.cell-tag{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;font-size:12px;line-height:1;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
 
 .preset-filters{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}.preset-filters-label{font-size:12px;color:var(--el-text-color-secondary)}.business-view :deep(.business-group-row){--el-table-tr-bg-color:var(--el-fill-color-light);font-weight:400}
 .toolbar,.actions,.row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar.business-toolbar{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto}.business-toolbar .actions,.business-toolbar .count{flex:none}.business-toolbar .actions{flex-wrap:nowrap}.business-toolbar .count{margin-right:0;white-space:nowrap}.business-view :deep(.el-card__header){padding:6px 12px}.business-view :deep(.el-card__body){padding:2px 12px 12px}.toolbar{justify-content:space-between}.count{font-size:12px;color:var(--el-text-color-secondary);margin-right:auto}.filters{max-height:60vh;overflow:auto;padding:4px 8px}.filters .el-form{margin-top:14px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 20px}.form-grid :deep(.el-select),.form-grid :deep(.el-date-editor){width:100%}.row-actions{flex-wrap:nowrap;gap:2px}.row-actions :deep(.el-button){margin:0}.business-view :deep(.ozon-data-grid){--ozon-grid-text:#1f2329;--ozon-grid-heading:#1f2329;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Tahoma,'PingFang SC','Microsoft YaHei',Arial,'Hiragino Sans GB',sans-serif;font-size:14px;font-weight:400;line-height:20px;color:var(--ozon-grid-text);--el-table-text-color:var(--ozon-grid-text);--el-table-header-text-color:var(--ozon-grid-heading)}
