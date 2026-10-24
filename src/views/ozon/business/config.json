@@ -1607,6 +1607,23 @@
         ]
       },
       {
+        "prop": "logisticsMethod",
+        "label": "物流方式",
+        "sql": "v.`物流方式`",
+        "width": 150,
+        "numeric": false,
+        "type": "text",
+        "required": false,
+        "readonly": true,
+        "options": [
+          "立德",
+          "超光速",
+          "贝加尔",
+          "跨境店",
+          "边境带货"
+        ]
+      },
+      {
         "prop": "attachmentJson",
         "label": "附件",
         "width": 124,
