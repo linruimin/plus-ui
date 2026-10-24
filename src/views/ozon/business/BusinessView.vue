@@ -48,10 +48,10 @@
         <el-date-picker v-else-if="inputField(field).type==='date'" v-model="drafts[row.id][field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" clearable :disabled="rowBusy[row.id]"/>
         <el-input v-else v-model="drafts[row.id][field.prop]" :maxlength="inputField(field).maxLength" :disabled="rowBusy[row.id]" :aria-label="field.label"/>
        </template>
-       <span v-else-if="cellTags(row,field).length" :class="cellTags(row,field).length>1?'cell-tags multi':'cell-tags'" :title="tagTitle(row,field)"><span v-for="(t,ti) in visibleTags(row,field)" :key="ti" class="cell-tag" :style="t.style">{{ t.text }}</span><span v-if="cellTags(row,field).length>MAX_VISIBLE_TAGS" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-MAX_VISIBLE_TAGS }}</span></span>
+       <span v-else-if="cellTags(row,field).length" :class="visibleTags(row,field).length>1?'cell-tags multi':'cell-tags'" :title="tagTitle(row,field)"><span v-for="(t,ti) in visibleTags(row,field)" :key="ti" class="cell-tag" :style="t.style">{{ t.text }}</span><span v-if="cellTags(row,field).length>visibleTags(row,field).length" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-visibleTags(row,field).length }}</span></span>
        <span v-else>{{ rowBusy[row.id]?'读取中…':display(row,field) }}</span>
       </div>
-      <span v-else-if="cellTags(row,field).length" :class="cellTags(row,field).length>1?'cell-tags multi':'cell-tags'" :title="tagTitle(row,field)"><span v-for="(t,ti) in visibleTags(row,field)" :key="ti" class="cell-tag" :style="t.style">{{ t.text }}</span><span v-if="cellTags(row,field).length>MAX_VISIBLE_TAGS" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-MAX_VISIBLE_TAGS }}</span></span>
+      <span v-else-if="cellTags(row,field).length" :class="visibleTags(row,field).length>1?'cell-tags multi':'cell-tags'" :title="tagTitle(row,field)"><span v-for="(t,ti) in visibleTags(row,field)" :key="ti" class="cell-tag" :style="t.style">{{ t.text }}</span><span v-if="cellTags(row,field).length>visibleTags(row,field).length" class="cell-tag cell-tag-more">+{{ cellTags(row,field).length-visibleTags(row,field).length }}</span></span>
       <span v-else>{{ display(row,field) }}</span>
      </template>
     </el-table-column>
@@ -432,9 +432,13 @@ const TAG_BG=['#e1eaff','#d9f5f5','#ffe9d6','#fde2e2','#ede2fe','#d9f5d6','#fee2
 const TAG_TEXT='#1f2329';
 /** 多值单元格的 hover 提示：把所有标签拼起来（表格里只显示第一个 + N）。 */
 function tagTitle(row:BusinessRow,field:BusinessField){return cellTags(row,field).map(t=>t.text).join('、');}
-/** 单元格里最多横排几个标签：2 个（用户要求「物流方式有两个就要两个框」），再多就折叠成「+N」。 */
+/** 单元格里横排几个标签：
+ *  ① 选项字段（物流方式等）最多 2 个（用户要求「物流方式有两个就要两个框」），超过折叠成「+N」；
+ *  ② 引用字段（出货订单号等）只放 1 个 + 「+N」——编号长，两个框都会被裁成省略号。 */
 const MAX_VISIBLE_TAGS=2;
-function visibleTags(row:BusinessRow,field:BusinessField){return cellTags(row,field).slice(0,MAX_VISIBLE_TAGS);}
+function visibleTags(row:BusinessRow,field:BusinessField){
+ return cellTags(row,field).slice(0,field.options?.length?MAX_VISIBLE_TAGS:1);
+}
 function textHash(s:string){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h;}
 /** 单个标签的配色：选项字段按「选项序号」固定取色（同值永远同色）；引用字段无选项定义 → 统一中性色。
  *  文字一律 TAG_TEXT 黑色。 */
