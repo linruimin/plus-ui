@@ -686,8 +686,8 @@ onMounted(()=>{updateTableHeight();bindHorizontalScroll();seedFromViewCache();vo
    文字**统一标签黑 #1f2329**（与单元格正文同色，2026-10-24 用户要求），引用字段底色统一中性灰。 */
 .cell-tags{display:flex;align-items:center;gap:6px;overflow:hidden;line-height:24px;min-width:0}
 .cell-tag{display:inline-block;height:24px;padding:0 10px;border-radius:12px;font-size:14px;font-weight:400;line-height:24px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;flex:0 0 auto}
-/* 多值（≥2 个框）：各占最多半列宽，保证两个框都完整出现（长值出省略号），不会出现被裁掉半个框 */
-.cell-tags.multi .cell-tag{max-width:calc(50% - 3px)}
+/* 多值（≥2 个框）：允许按内容自适应收缩——列宽够就完整显示两个框，不够才各自出省略号（不会裁掉半个框） */
+.cell-tags.multi .cell-tag{flex:0 1 auto;min-width:0}
 /* 多值折叠后的「+N」：中性灰底，文字同样用标签黑 */
 .cell-tag-more{padding:0 8px;background:#f0f2f5;color:#1f2329}
 
