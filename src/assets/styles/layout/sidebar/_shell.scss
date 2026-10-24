@@ -79,13 +79,30 @@
     }
 
     a {
-      display: inline-block;
-      width: 100%;
+      /* 「无子菜单」的路由项结构是 <a><li class="el-menu-item"></li></a>：
+         原来 a 是 inline-block + overflow:hidden（BFC），内层 li 的 2px 外边距不折叠，
+         会把包装 li 撑到 36~41px —— 而带子菜单的项是 32px，同一列高度不齐。
+         改成「a 定高 32 + 两端 2px 外边距、内层 li 归零」，高度与间距都由 a 统一承担。 */
+      display: flex;
+      align-items: center;
+      width: calc(100% - 12px);
+      height: 32px;
+      margin: 2px 6px;
       overflow: hidden;
     }
 
+    a > .el-menu-item {
+      margin: 0 !important;
+      height: 32px !important;
+      flex: 1;
+      min-width: 0;
+    }
+
     .svg-icon {
-      margin-right: 10px;
+      margin-right: 8px;
+      width: 16px;
+      height: 16px;
+      flex: 0 0 16px;
     }
 
     .el-menu {
@@ -93,6 +110,12 @@
       height: 100%;
       width: 100% !important;
       background: transparent !important;
+      /* 2026-10-24 对齐飞书多维表格菜单：13px/14px 系统字体栈、正文常规字重。 */
+      font-family:
+        -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+        'Helvetica Neue', Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.4;
     }
 
     .el-menu--inline {
@@ -118,6 +141,12 @@
     .el-menu-item,
     .el-sub-menu__title {
       position: relative;
+      font-weight: 400;
+    }
+
+    /* 选中项加一点字重（飞书多维表格同为 500），其余保持常规，避免整列发粗。 */
+    .el-menu-item.is-active,
+    .el-sub-menu.is-active > .el-sub-menu__title {
       font-weight: 500;
     }
 

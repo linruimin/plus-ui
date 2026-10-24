@@ -1,4 +1,5 @@
-/* 侧栏内 el-menu：一级/嵌套项的 hover、active、浅色与 theme-dark 分支（与 _shell 中变量定义配合）。 */
+/* 侧栏内 el-menu：一级/嵌套项的 hover、active、浅色与 theme-dark 分支（与 _shell 中变量定义配合）。
+   2026-10-24 尺寸对齐飞书多维表格：行高 32、上下间距 2/左右 6、圆角 6。 */
 
 @use '../../tokens/sass-vars' as *;
 
@@ -6,9 +7,9 @@
   .sidebar-container {
     .theme-dark .submenu-title-noDropdown,
     .theme-dark .el-sub-menu__title {
-      border-radius: var(--app-radius-md);
-      margin: 3px 8px;
-      height: 40px;
+      border-radius: 6px;
+      margin: 2px 6px;
+      height: 32px;
 
       &:hover {
         background-color: var(--side-menu-hover-bg) !important;
@@ -18,9 +19,12 @@
 
     .submenu-title-noDropdown,
     .el-sub-menu__title {
-      border-radius: var(--app-radius-md);
-      margin: 3px 8px;
-      height: 40px;
+      border-radius: 6px;
+      margin: 2px 6px;
+      height: 32px;
+      /* element 默认 --el-menu-item-height 是 56px，会把这个 div 的行高撑到 56px；
+         行高与行高必须一致，否则文字视觉重心偏下。 */
+      line-height: 32px;
       color: var(--side-menu-text) !important;
 
       &:hover {
@@ -35,10 +39,10 @@
 
     & .nest-menu .el-sub-menu > .el-sub-menu__title,
     & .el-sub-menu .el-menu-item {
-      min-width: calc($base-sidebar-width - 16px) !important;
-      border-radius: var(--app-radius-md);
-      height: 40px;
-      margin: 3px 8px;
+      min-width: calc($base-sidebar-width - 12px) !important;
+      border-radius: 6px;
+      height: 32px;
+      margin: 2px 6px;
       background: transparent !important;
 
       &:not(.is-active):hover {
@@ -49,9 +53,9 @@
 
     & .theme-dark .nest-menu .el-sub-menu > .el-sub-menu__title,
     & .theme-dark .el-sub-menu .el-menu-item {
-      border-radius: var(--app-radius-md);
-      height: 40px;
-      margin: 3px 8px;
+      border-radius: 6px;
+      height: 32px;
+      margin: 2px 6px;
       background: transparent !important;
 
       &.is-active {
@@ -70,9 +74,9 @@
 
     & .theme-dark .nest-menu .el-sub-menu > .el-sub-menu__title,
     & .theme-dark .el-menu-item {
-      border-radius: var(--app-radius-md);
-      height: 40px;
-      margin: 3px 8px;
+      border-radius: 6px;
+      height: 32px;
+      margin: 2px 6px;
       background: transparent !important;
 
       &.is-active {
@@ -91,9 +95,9 @@
 
     & .nest-menu .el-sub-menu > .el-sub-menu__title,
     & .el-menu-item {
-      border-radius: var(--app-radius-md);
-      height: 40px;
-      margin: 3px 8px;
+      border-radius: 6px;
+      height: 32px;
+      margin: 2px 6px;
       background: transparent !important;
 
       &.is-active {

@@ -18,7 +18,7 @@
     .submenu-title-noDropdown {
       padding: 0 !important;
       position: relative;
-      height: 40px;
+      height: 32px;
       width: 40px !important;
       min-width: 40px !important;
       margin: 3px auto !important;
@@ -58,7 +58,7 @@
       .el-sub-menu__title,
       .el-sub-menu__title.el-tooltip__trigger {
         border-radius: var(--app-radius-md);
-        height: 40px;
+        height: 32px;
         padding: 0 !important;
         display: flex;
         align-items: center;
