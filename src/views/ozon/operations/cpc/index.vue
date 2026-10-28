@@ -287,8 +287,8 @@ function renderChart() {
     grid: { left: 8, right: 8, top: 32, bottom: 4, containLabel: true },
     xAxis: { type: 'category', data: dates, axisTick: { show: false } },
     yAxis: [
-      { type: 'value', name: '花费 ₽', splitLine: { lineStyle: { type: 'dashed' } } },
-      { type: 'value', name: '订单额 ₽', splitLine: { show: false } }
+      { type: 'value', name: '', splitLine: { lineStyle: { type: 'dashed' } } },
+      { type: 'value', name: '', splitLine: { show: false } }  // 轴名会和右上角图例重叠，单位靠图例里的「订单额 ₽」表达
     ],
     series: [
       { name: '花费 ₽', type: 'bar', yAxisIndex: 0, barMaxWidth: 22, itemStyle: { color: '#f2a15a', borderRadius: [3, 3, 0, 0] }, data: rows.map(r => Number(r.spent || 0)) },
