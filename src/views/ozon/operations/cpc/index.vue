@@ -264,22 +264,35 @@ function renderChart() {
   if (!chartElement.value) return;
   if (!chart) chart = echarts.init(chartElement.value);
   const dates = rows.map(r => String(r.statDate).slice(5));
+  // 花费与订单额量级差 ~20 倍，共用左轴时花费柱几乎看不见 → 分双轴；
+  // 点击/订单/ДРР 不画线，放进 tooltip，避免三轴挤在一起。
   chart.setOption({
     tooltip: {
       trigger: 'axis',
-      valueFormatter: (v: unknown) => (v === null || v === undefined ? '—' : nf2.format(Number(v)))
+      formatter: (params: unknown) => {
+        const list = params as { dataIndex: number; seriesName: string; value: number; marker: string }[];
+        if (!list || !list.length) return '';
+        const r = rows[list[0].dataIndex];
+        const line = (label: string, val: string) => `<div style="display:flex;justify-content:space-between;gap:18px"><span>${label}</span><b>${val}</b></div>`;
+        return `<div style="font-weight:600;margin-bottom:4px">${r.statDate}</div>`
+          + line('花费', `${money(r.spent)} ₽`)
+          + line('订单额', `${money(r.ordersAmount)} ₽`)
+          + line('ДРР', pct(r.drr))
+          + line('点击', int(r.clicks))
+          + line('展示', int(r.views))
+          + line('CTR', pct(r.ctr));
+      }
     },
-    legend: { data: ['花费 ₽', '订单额 ₽', '点击'], top: 0, right: 8, itemWidth: 10, itemHeight: 10 },
+    legend: { data: ['花费 ₽', '订单额 ₽'], top: 0, right: 8, itemWidth: 10, itemHeight: 10 },
     grid: { left: 8, right: 8, top: 32, bottom: 4, containLabel: true },
     xAxis: { type: 'category', data: dates, axisTick: { show: false } },
     yAxis: [
-      { type: 'value', name: '₽', splitLine: { lineStyle: { type: 'dashed' } } },
-      { type: 'value', name: '点击', splitLine: { show: false } }
+      { type: 'value', name: '花费 ₽', splitLine: { lineStyle: { type: 'dashed' } } },
+      { type: 'value', name: '订单额 ₽', splitLine: { show: false } }
     ],
     series: [
-      { name: '花费 ₽', type: 'bar', barMaxWidth: 24, itemStyle: { color: '#f2a15a', borderRadius: [3, 3, 0, 0] }, data: rows.map(r => Number(r.spent || 0)) },
-      { name: '订单额 ₽', type: 'bar', barMaxWidth: 24, itemStyle: { color: '#5b8ff9', borderRadius: [3, 3, 0, 0] }, data: rows.map(r => Number(r.ordersAmount || 0)) },
-      { name: '点击', type: 'line', yAxisIndex: 1, smooth: true, symbolSize: 6, itemStyle: { color: '#5ad8a6' }, data: rows.map(r => Number(r.clicks || 0)) }
+      { name: '花费 ₽', type: 'bar', yAxisIndex: 0, barMaxWidth: 22, itemStyle: { color: '#f2a15a', borderRadius: [3, 3, 0, 0] }, data: rows.map(r => Number(r.spent || 0)) },
+      { name: '订单额 ₽', type: 'bar', yAxisIndex: 1, barMaxWidth: 22, itemStyle: { color: '#5b8ff9', borderRadius: [3, 3, 0, 0] }, data: rows.map(r => Number(r.ordersAmount || 0)) }
     ]
   }, true);
   chart.resize();
