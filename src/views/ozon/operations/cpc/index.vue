@@ -4,10 +4,7 @@
       <template #header>
         <div class="table-toolbar">
           <div class="view-controls">
-            <el-select v-model="shopId" size="small" class="shop-select" aria-label="店铺" @change="onShopChange">
-              <el-option label="全部店铺" :value="ALL_SHOPS" />
-              <el-option v-for="s in shopStore.shops" :key="s.id" :label="s.name" :value="s.id" />
-            </el-select>
+            <el-tag v-if="shopStore.selectedName" type="primary" size="small">{{ shopStore.selectedName }}</el-tag>
             <span class="record-count">
               共 {{ campaigns.length }} 个活动 · 有数据 {{ summaryDays }} 天 · {{ windowText }}
             </span>
@@ -112,7 +109,7 @@
               <div class="campaign-cell">
                 <span class="campaign-name">{{ row.campaignTitle || '(未命名活动)' }}</span>
                 <span class="campaign-id">#{{ row.campaignId }}</span>
-                <el-tag v-if="shopId === ALL_SHOPS" size="small" type="info" class="shop-tag">{{ shopName(row.shopId) }}</el-tag>
+                <el-tag v-if="showShopTag" size="small" type="info" class="shop-tag">{{ shopName(row.shopId) }}</el-tag>
               </div>
             </template>
           </el-table-column>
@@ -170,7 +167,7 @@ import { GridComponent, TooltipComponent, LegendComponent, AriaComponent } from 
 import { CanvasRenderer } from 'echarts/renderers';
 import { getCpcOverview, listCpcDaily, scopeCpcQuery } from '@/api/ozon/cpc';
 import type { OzonCpcCampaign, OzonCpcDaily, OzonCpcSummary, OzonCpcTrend } from '@/api/ozon/cpc/types';
-import { ALL_SHOPS, useOzonShopStore } from '@/store/modules/ozonShop';
+import { useOzonShopStore } from '@/store/modules/ozonShop';
 
 echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, LegendComponent, AriaComponent, CanvasRenderer]);
 
@@ -181,7 +178,8 @@ function mskDate(offsetDays = 0): string {
 }
 
 const shopStore = useOzonShopStore();
-const shopId = ref<string>(shopStore.selectedId || ALL_SHOPS);
+/** 店铺范围一律跟随全局店铺（首页选择），本页不提供切换入口 —— 与其它 Ozon 视图保持一致。 */
+const showShopTag = computed(() => !shopStore.scopedShopId);
 const quick = ref('7');
 const dateRange = ref<string[]>([mskDate(-7), mskDate(-1)]);
 const paymentType = ref('');
@@ -303,7 +301,7 @@ async function load() {
   error.value = '';
   try {
     const params = scopeCpcQuery({
-      scopeShopId: shopId.value,
+      scopeShopId: shopStore.scopedShopId,
       dateFrom: dateRange.value?.[0],
       dateTo: dateRange.value?.[1],
       paymentType: paymentType.value,
@@ -345,7 +343,7 @@ async function onExpandChange(row: OzonCpcCampaign, expanded: OzonCpcCampaign[])
   dailyLoading.value = { ...dailyLoading.value, [row.campaignId]: true };
   try {
     const res = await listCpcDaily(scopeCpcQuery({
-      scopeShopId: shopId.value,
+      scopeShopId: shopStore.scopedShopId,
       campaignId: row.campaignId,
       dateFrom: dateRange.value?.[0],
       dateTo: dateRange.value?.[1]
@@ -370,19 +368,8 @@ function applyQuick(v: string) {
   load();
 }
 
-function onShopChange(id: string) {
-  shopStore.selectShop(id);
-  load();
-}
-
-/** 全局店铺在别的页面被改过时，本页跟着切换。 */
-watch(() => shopStore.selectedId, (id) => {
-  const next = id || ALL_SHOPS;
-  if (next !== shopId.value) {
-    shopId.value = next;
-    load();
-  }
-});
+/** 全局店铺切换（首页）后本页跟着重查。 */
+watch(() => shopStore.selectedId, () => load());
 
 watch(quick, (v) => applyQuick(v));
 
@@ -393,9 +380,7 @@ function onResize() {
 onMounted(async () => {
   try {
     await shopStore.loadShops();
-    if (!shopStore.selectedId) shopId.value = ALL_SHOPS;
-    else shopId.value = shopStore.selectedId;
-  } catch { /* 店铺列表失败不阻塞页面，默认全部店铺 */ }
+  } catch { /* 店铺列表失败不阻塞页面，按「全部店铺」显示 */ }
   await load();
   window.addEventListener('resize', onResize);
 });
@@ -417,7 +402,6 @@ onBeforeUnmount(() => {
 .cpc-card :deep(.el-card__body) { padding: 8px 12px 12px; }
 .table-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .view-controls, .view-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.shop-select { width: 140px; }
 .type-select { width: 120px; }
 .keyword-input { width: 160px; }
 .record-count { font-size: 12px; color: var(--el-text-color-secondary); }

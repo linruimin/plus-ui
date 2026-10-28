@@ -1,6 +1,6 @@
 import type { AxiosPromise } from '@/utils/api-types';
 import request from '@/utils/request';
-import { useOzonShopStore, ALL_SHOPS } from '@/store/modules/ozonShop';
+import { ALL_SHOPS } from '@/store/modules/ozonShop';
 import type { OzonCpcDaily, OzonCpcOverview, OzonCpcQuery } from './types';
 
 /** 汇总 + 按天趋势 + 活动排行，一次查全。 */
@@ -22,10 +22,4 @@ export function scopeCpcQuery(query: OzonCpcQuery): OzonCpcQuery {
   const result: OzonCpcQuery = { ...query };
   if (!result.scopeShopId || result.scopeShopId === ALL_SHOPS) delete result.scopeShopId;
   return result;
-}
-
-/** 页面用：店铺下拉选项 + 当前店铺（与其它 Ozon 页共享同一个 store）。 */
-export function useCpcShopScope() {
-  const shopStore = useOzonShopStore();
-  return { shopStore, ALL_SHOPS };
 }
