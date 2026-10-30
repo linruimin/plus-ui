@@ -181,11 +181,12 @@ let formulaRow:BusinessRow|null=null;
 const columnByLabel=computed(()=>{const map=new Map<string,BusinessField>();for(const column of allColumns.value)map.set(column.label,column);return map;});
 function resolveFormulaField(label:string){
  const column=columnByLabel.value.get(label);
- if(!column||!formulaRow)return undefined;
+ if(!column||!formulaRow)return undefined;   // 列名写错（不是本表的列）→ 整条公式显示「—」
  const raw=formulaRow[column.prop];
- if(raw===null||raw===undefined||raw==='')return undefined;
+ // 空单元格当 0 参与运算（对齐多维表格：空 + 数字 = 数字）；只有列名不存在才让整条为空
+ if(raw===null||raw===undefined||raw==='')return 0;
  const num=Number(raw);
- return Number.isFinite(num)?num:undefined;
+ return Number.isFinite(num)?num:0;
 }
 function formulaValue(field:BusinessField,row:BusinessRow):number|null{
  const expression=formulaOf(field);
