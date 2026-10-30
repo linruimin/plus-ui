@@ -291,3 +291,65 @@ export interface ProductSale {
   accrualDate?: string;
   salesAmountRub: number | string;
 }
+
+/** 退货成本汇总卡片；成本字段均为正数（花了多少钱），收入退回为负数（冲减收入）。 */
+export interface OzonReturnsCostSummaryVO {
+  shipmentCount: number | null;
+  returnQty: number | null;
+  goodsValueRub: number | string | null;
+  storageFeeRub: number | string | null;
+  disposalFeeRub: number | string | null;
+  reverseLogisticsRub: number | string | null;
+  handlingFeeRub: number | string | null;
+  pickupFeeRub: number | string | null;
+  costTotalRub: number | string | null;
+  costPerShipmentRub: number | string | null;
+  costRatePct: number | string | null;
+  revenueRefundRub: number | string | null;
+  commissionRefundRub: number | string | null;
+  unmappedCount: number | null;
+  unmappedCostRub: number | string | null;
+}
+
+/** 退货成本：按卖家货号归并的费用汇总。 */
+export interface OzonReturnsCostArticleVO {
+  articleNo: string | null;
+  productName: string | null;
+  imageUrl: string | null;
+  shipmentCount: number | null;
+  returnQty: number | null;
+  reverseLogisticsRub: number | string | null;
+  handlingFeeRub: number | string | null;
+  pickupFeeRub: number | string | null;
+  costTotalRub: number | string | null;
+  costPerShipmentRub: number | string | null;
+}
+
+/** 退货成本明细行：一行 = 一张退货单，成本为分摊值。 */
+export interface OzonReturnsCostRowVO {
+  shopId: number | string | null;
+  shipmentNo: string | null;
+  articleNo: string | null;
+  sku: string | null;
+  productName: string | null;
+  imageUrl: string | null;
+  shopName: string | null;
+  returnStatus: string | null;
+  returnDate: string | null;
+  statusDate: string | null;
+  orderDate: string | null;
+  storageDays: number | string | null;
+  returnQty: number | string | null;
+  storageFeeRub: number | string | null;
+  reverseLogisticsRub: number | string | null;
+  handlingFeeRub: number | string | null;
+  pickupFeeRub: number | string | null;
+  costTotalRub: number | string | null;
+}
+
+/** 退货成本视图：汇总 + 按货号归并 + 逐单明细（明细合计等于汇总成本）。 */
+export interface OzonReturnsCostVO {
+  summary: OzonReturnsCostSummaryVO;
+  articles: OzonReturnsCostArticleVO[];
+  rows: OzonReturnsCostRowVO[];
+}

@@ -1,7 +1,7 @@
 import type { PageResult } from '@/api/types';
 import type { AxiosPromise } from '@/utils/api-types';
 import request from '@/utils/request';
-import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale, OzonSupplyChartVO, OzonSupplyReportVO, OzonReturnsChartVO, OzonReturnsRowVO, OzonAccrualChartVO, OzonAccrualItemVO, OzonSummaryChartVO } from './types';
+import type { ReportKind, ReportQuery, ReportRow, ProductSalesTrend, SalesProduct, ProductSale, OzonSupplyChartVO, OzonSupplyReportVO, OzonReturnsChartVO, OzonReturnsRowVO, OzonReturnsCostVO, OzonAccrualChartVO, OzonAccrualItemVO, OzonSummaryChartVO } from './types';
 
 /** 查询已有 Ozon 报表。 */
 export function listReport(kind: ReportKind, query: ReportQuery): AxiosPromise<PageResult<ReportRow>> {
@@ -56,6 +56,11 @@ export function listSalesTrend(query: ReportQuery): AxiosPromise<ProductSalesTre
 /** 查询原费用筛选结果中的产品选项。 */
 export function listSalesProducts(query: ReportQuery): AxiosPromise<SalesProduct[]> {
   return request({ url: '/ozon/report/accruals/sales-products', method: 'get', params: query });
+}
+
+/** 退货成本：退货单 + 应计退货费用（按 货号+订单日 均摊），一次返回汇总/货号/明细。 */
+export function listReturnsCost(query: ReportQuery): AxiosPromise<OzonReturnsCostVO> {
+  return request({ url: '/ozon/report/returns/cost', method: 'get', params: query });
 }
 
 /** 查询一个产品的全部逐笔销售额，不受表格分页影响。 */
