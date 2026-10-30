@@ -11,6 +11,12 @@ export const listBusiness = (endpoint:string, params:BusinessQuery):AxiosPromise
 };
 /** 计算列（表头 ƒx）的公式文本：key = 视图里的中文列名，value = 解析后的算式。 */
 export const getBizFormulas = (table:string):AxiosPromise<Record<string,string>> => request({url:'/ozon/biz-formula/'+table,method:'get'});
+/** 保存某计算列的自定义公式（列名走 query，因为列名里可能有 `/` 这类路径保留字符）。 */
+export const saveBizFormula = (table:string, column:string, expression:string) =>
+  request({url:'/ozon/biz-formula/'+table, method:'put', params:{column}, data:{expression}});
+/** 恢复视图内置公式。 */
+export const resetBizFormula = (table:string, column:string) =>
+  request({url:'/ozon/biz-formula/'+table, method:'delete', params:{column}});
 export const getBusiness = (endpoint:string,id:string|number):AxiosPromise<BusinessRow> => request({url:'/ozon/business/'+endpoint+'/'+id,method:'get'});
 export const addBusiness = (endpoint:string,data:BusinessRow) => request({url:'/ozon/business/'+endpoint,method:'post',data});
 export const editBusiness = (endpoint:string,data:BusinessRow) => request({url:'/ozon/business/'+endpoint,method:'put',data});

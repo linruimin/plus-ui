@@ -19,7 +19,7 @@
    <el-table class="ozon-data-grid" :key="tableKey" v-loading="loading&&!refreshingView&&rows.length>0" :data="displayRows" border :show-summary="rows.length>0" :summary-method="summaryMethod" :row-key="rowKey" :row-class-name="({row})=>row.__group?'business-group-row':row.__new?'business-new-row':''" :height="tableHeight" @sort-change="sortChange" @row-contextmenu="onRowContextMenu" @header-contextmenu="onHeaderContextMenu">
     <el-table-column prop="__rowNumber" label="#" width="56" fixed="left" align="center" class-name="row-number-column"><template #default="{row}"><span v-if="!row.__group">{{ row.__new?'＋':(rowNumbers.get(String(row.id))??'') }}</span></template></el-table-column>
     <el-table-column v-for="field in visibleColumns" :key="field.prop" :prop="field.prop" :width="gridColumnWidth(field)" :fixed="field.fixed" :align="field.numeric&&!field.reference?'right':'left'" show-overflow-tooltip>
-     <template #header><el-popover trigger="click" placement="bottom-start" :width="248" :show-after="0" :disabled="formatKindOf(field)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(field)!=='text'}" :title="formatKindOf(field)==='text'?'':'点击设置显示格式'"><span v-if="field.reference" class="field-type-icon" title="引用字段" aria-label="引用字段">↗</span><el-tooltip v-else-if="field.readonly" placement="top" :show-after="250" popper-class="fx-formula-tip" :content="formulaOf(field)||'计算字段（公式待补）'" :disabled="!formulaOf(field)"><span class="field-type-icon field-type-formula" aria-label="计算字段">ƒx</span></el-tooltip><span v-else-if="field.customId" class="field-type-icon" :title="field.numeric?'数字字段':'文本字段'">{{ field.numeric?'#':'T' }}</span><span>{{ field.label }}</span><i v-if="field.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="field" :formula="formulaOf(field)" :model-value="columnFormats[field.prop]" @update:model-value="applyColumnFormat($event,field)"/></el-popover></template>
+     <template #header><el-popover trigger="click" placement="bottom-start" :width="340" :show-after="0" :disabled="formatKindOf(field)==='text'"><template #reference><span class="field-heading" :class="{'is-formatable':formatKindOf(field)!=='text'}" :title="formatKindOf(field)==='text'?'':'点击设置显示格式'"><span v-if="field.reference" class="field-type-icon" title="引用字段" aria-label="引用字段">↗</span><el-tooltip v-else-if="field.readonly" placement="top" :show-after="250" popper-class="fx-formula-tip" :content="formulaOf(field)||'计算字段（公式待补）'" :disabled="!formulaOf(field)"><span class="field-type-icon field-type-formula" aria-label="计算字段">ƒx</span></el-tooltip><span v-else-if="field.customId" class="field-type-icon" :title="field.numeric?'数字字段':'文本字段'">{{ field.numeric?'#':'T' }}</span><span>{{ field.label }}</span><i v-if="field.format" class="field-format-dot" title="已设置显示格式" aria-label="已设置显示格式"></i></span></template><ColumnFormatPanel :column="field" :formula="formulaOf(field)" :formula-custom="isFormulaCustom(field)" :field-options="allColumns.filter(c=>c.label!==field.label&&c.prop!=='__actions'&&!c.attachment).map(c=>c.label)" :saving="savingFormula" :model-value="columnFormats[field.prop]" @update:model-value="applyColumnFormat($event,field)" @save-formula="saveFormula(field,$event)" @reset-formula="resetFormula(field)"/></el-popover></template>
      <template #default="{row}">
       <span v-if="row.__group" class="group-cell" :style="field.prop===visibleColumns[0]?.prop?{paddingLeft:(row.__level||0)*14+'px'}:{}" :title="row.__groupTitle||row.__group"><template v-if="field.prop===visibleColumns[0]?.prop"><span class="group-name" :class="{'group-name-secondary':row.__level>0}">{{ row.__groupName }}</span><span class="group-count">{{ row.__count }} 条</span></template><span v-if="row[field.prop]!==undefined" class="group-sum"><span class="sum-prefix">求和</span><span class="sum-value">{{ display(row,field) }}</span></span></span>
       <div v-else-if="field.prop==='__actions'" class="row-actions">
@@ -121,7 +121,7 @@ import {onBeforeRouteLeave} from 'vue-router';
 import {useWindowSize} from '@vueuse/core';
 import {ElMessage,ElMessageBox} from 'element-plus';
 import type {FormInstance} from 'element-plus';
-import {listBusiness,getBusiness,addBusiness,editBusiness,deleteBusiness,placeBusinessRow,listRemovedBusinessFields,removeBusinessField,listBusinessCustomFields,listBusinessCustomValues,addBusinessCustomField,saveBusinessCustomValue,removeBusinessCustomField,scopeBusinessQuery,nextBusinessNumber,getBizFormulas} from '@/api/ozon/business';
+import {listBusiness,getBusiness,addBusiness,editBusiness,deleteBusiness,placeBusinessRow,listRemovedBusinessFields,removeBusinessField,listBusinessCustomFields,listBusinessCustomValues,addBusinessCustomField,saveBusinessCustomValue,removeBusinessCustomField,scopeBusinessQuery,nextBusinessNumber,getBizFormulas,saveBizFormula,resetBizFormula} from '@/api/ozon/business';
 import type {BusinessRow,BusinessQuery,BusinessCustomField,FilterCondition} from '@/api/ozon/business';
 import {useUserStore} from '@/store/modules/user';
 import {useOzonShopStore} from '@/store/modules/ozonShop';
@@ -129,6 +129,7 @@ import ColumnSettings from '../components/ColumnSettings.vue';
 import {readPreference,writePreference,normalizeColumns,selectedColumns,stripColumnFormats} from '../components/preferences';
 import {businessConfig} from './config';
 import type {BusinessField} from './config';
+import {compileFormula} from '../components/formulaEval';
 import {gridColumnWidth,canSumColumn,sumRowValues,formatNumericColumn,formatDateColumn,columnFormatKind} from '../components/columns';
 import type {ColumnFormat} from '../components/columns';
 import ColumnFormatPanel from '../components/ColumnFormatPanel.vue';
@@ -156,16 +157,54 @@ const numberProp=autoNumberProps[props.table];
 const saved=readPreference(storageKey);
 const customFields=ref<BusinessCustomField[]>([]);
 /** 计算列（表头 ƒx）的公式文本：key = 视图里的中文列名。打开表时拉一次，失败就静默（不影响表格）。 */
-const formulas=ref<Record<string,string>>({});
-function formulaOf(field:BusinessField){
- if(!field||!field.readonly)return '';
+const formulas=ref<Record<string,{expression:string;custom:boolean}>>({});
+/** 计算列的公式以「视图里的中文列名」为键（prop 是 calcN，不稳定）；取不到就用字段中文名兜底。 */
+function formulaKey(field:BusinessField){
  const raw=(field as unknown as {sql?:string}).sql||'';
  const hit=/`([^`]+)`\s*$/.exec(raw);
- const key=hit?hit[1]:field.label;
- return formulas.value[key]||'';
+ return hit?hit[1]:field.label;
+}
+function formulaOf(field:BusinessField){
+ if(!field||!field.readonly)return '';
+ return formulas.value[formulaKey(field)]?.expression||'';
+}
+/** 用户改过的公式：显示值按本行数据实时算，优先于视图值。 */
+function isFormulaCustom(field:BusinessField){
+ return !!field?.readonly&&!!formulas.value[formulaKey(field)]?.custom;
 }
 async function loadFormulas(){
- try{const res=await getBizFormulas(props.table);formulas.value=res.data||{};}catch{formulas.value={};}
+ try{const res=await getBizFormulas(props.table);formulas.value=res.data||{};compiledFormulas.clear();}catch{formulas.value={};}
+}
+/** 自定义公式求值：编译结果按表达式缓存（几十行 × 十几列也扛得住），按行切换 formulaRow。 */
+const compiledFormulas=new Map<string,()=>number|null>();
+let formulaRow:BusinessRow|null=null;
+const columnByLabel=computed(()=>{const map=new Map<string,BusinessField>();for(const column of allColumns.value)map.set(column.label,column);return map;});
+function resolveFormulaField(label:string){
+ const column=columnByLabel.value.get(label);
+ if(!column||!formulaRow)return undefined;
+ const raw=formulaRow[column.prop];
+ if(raw===null||raw===undefined||raw==='')return undefined;
+ const num=Number(raw);
+ return Number.isFinite(num)?num:undefined;
+}
+function formulaValue(field:BusinessField,row:BusinessRow):number|null{
+ const expression=formulaOf(field);
+ if(!expression)return null;
+ let fn=compiledFormulas.get(expression);
+ if(!fn){try{fn=compileFormula(expression,resolveFormulaField);compiledFormulas.set(expression,fn);}catch{return null;}}
+ formulaRow=row;
+ try{return fn();}catch{return null;}finally{formulaRow=null;}
+}
+const savingFormula=ref(false);
+async function saveFormula(field:BusinessField,expression:string){
+ savingFormula.value=true;
+ try{await saveBizFormula(props.table,formulaKey(field),expression);await loadFormulas();}
+ finally{savingFormula.value=false;}
+}
+async function resetFormula(field:BusinessField){
+ savingFormula.value=true;
+ try{await resetBizFormula(props.table,formulaKey(field));await loadFormulas();}
+ finally{savingFormula.value=false;}
 }
 const allColumns=computed<BusinessField[]>(()=>[...config.columns,...customFields.value.map(field=>({prop:'custom_'+field.id,label:field.label,width:180,customId:field.id,numeric:field.type==='number',decimal:field.type==='number',precision:field.type==='number'?2:undefined})),{prop:'__actions',label:'操作',width:145}]);
 const removedFields=ref<string[]>([]);
@@ -434,7 +473,7 @@ const summaryMethod=computed(()=>{
  });
 });
 function rowKey(row:BusinessRow){return String(row.__key??row.id);}
-function display(row:BusinessRow,field:BusinessField){let v=row[field.prop];if(field.reference){v=row[field.prop+'Label']||v;if(Array.isArray(v))return v.length?v.join('、'):'—';}if(v===null||v===undefined||v==='')return '—';if(field.customId)return String(v);if(field.numeric&&!field.reference)return formatNumericColumn(v,field);if(field.format?.date)return formatDateColumn(v,field);return String(v);}
+function display(row:BusinessRow,field:BusinessField){if(field.readonly&&isFormulaCustom(field)){const fv=formulaValue(field,row);if(fv===null)return '—';return field.numeric?formatNumericColumn(fv,field):String(fv);}let v=row[field.prop];if(field.reference){v=row[field.prop+'Label']||v;if(Array.isArray(v))return v.length?v.join('、'):'—';}if(v===null||v===undefined||v==='')return '—';if(field.customId)return String(v);if(field.numeric&&!field.reference)return formatNumericColumn(v,field);if(field.format?.date)return formatDateColumn(v,field);return String(v);}
 /** 飞书多维表格的**官方选项标签底色**（2026-10-24 用户第三次调整：**标签文字全部用黑色**）：
  *  蓝 #E1EAFF、青 #D9F5F5、橙 #FFE9D6、红 #FDE2E2、紫 #EDE2FE、
  *  绿 #D9F5D6、粉 #FEE2F1、灰 #EFF0F1、黄 #FFF7D6、靛 #E0E6FB。按选项在 field.options 里的顺序取色（循环）。
