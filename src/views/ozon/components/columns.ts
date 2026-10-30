@@ -20,6 +20,10 @@ export interface ReportColumn {
   attachment?: boolean;
   fixed?: 'left' | 'right';
   format?: ColumnFormat;
+  /** 计算列（业务表里由 MySQL 视图算出，表头带 ƒx）—— 只读，显示精度走「自动」。 */
+  readonly?: boolean;
+  /** 计算列的算式文本（后端从视图定义解析），只用于展示，不参与计算。 */
+  formula?: string;
 }
 
 /**
@@ -87,6 +91,11 @@ export function formatNumericColumn(value: unknown, column: ReportColumn): strin
   const number = Number(value);
   if (!Number.isFinite(number)) return String(value);
   const label = column.label;
+  // 计算列（表头 ƒx）默认「自动」：按实际值显示，最多 6 位小数、不补尾随 0
+  // —— 对齐飞书多维表格数字字段的默认行为；用户在表头面板显式选过位数则以下面为准。
+  if (column.readonly && column.format?.digits === undefined) {
+    return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 6 }).format(number);
+  }
   let digits: number;
   // 表头格式面板里设过就以它为准（digits 0 = 只显示整数）；没设过才按字段含义猜。
   if (column.format?.digits !== undefined) digits = column.format.digits;

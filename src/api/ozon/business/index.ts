@@ -9,6 +9,8 @@ export const listBusiness = (endpoint:string, params:BusinessQuery):AxiosPromise
  const { conditions, ...rest } = params;
  return request({ url:'/ozon/business/'+endpoint+'/list',method:'get',params:{...rest,conditions:conditions&&conditions.length?JSON.stringify(conditions):undefined} });
 };
+/** 计算列（表头 ƒx）的公式文本：key = 视图里的中文列名，value = 解析后的算式。 */
+export const getBizFormulas = (table:string):AxiosPromise<Record<string,string>> => request({url:'/ozon/biz-formula/'+table,method:'get'});
 export const getBusiness = (endpoint:string,id:string|number):AxiosPromise<BusinessRow> => request({url:'/ozon/business/'+endpoint+'/'+id,method:'get'});
 export const addBusiness = (endpoint:string,data:BusinessRow) => request({url:'/ozon/business/'+endpoint,method:'post',data});
 export const editBusiness = (endpoint:string,data:BusinessRow) => request({url:'/ozon/business/'+endpoint,method:'put',data});
