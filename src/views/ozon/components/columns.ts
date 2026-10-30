@@ -85,28 +85,41 @@ function numericFormatter(digits: number): Intl.NumberFormat {
   return formatter;
 }
 
+/** 小数位上限 0~6。 */
+function clampDigits(value: number): number {
+  return Math.min(Math.max(Math.round(value), 0), 6);
+}
+
+/** 按字段含义猜小数位（没在表头面板里设过时用）。 */
+function guessDigits(column: ReportColumn): number {
+  const label = column.label;
+  if (/数量|总数|件数|箱数|记录数|字节/.test(label)) return 0;
+  if (/体积/.test(label)) return clampDigits(column.precision ?? 4);
+  if (/重量|箱重|重\/kg/.test(label)) return clampDigits(column.precision ?? 3);
+  if (column.precision !== undefined) return clampDigits(column.precision);
+  if (/汇率/.test(label)) return 4;
+  if (column.decimal || column.prop.startsWith('calc') || /售价|价格|成本|费用|金额|到手|利润|货款|支付|回款|税额|倍数|密度/.test(label)) return 2;
+  return 0;
+}
+
+/**
+ * 计算列（ƒx）在表头面板里的「自动」说明：未设置时不是固定位数，而是按字段含义定上限且不补零。
+ * 面板里给用户看这句，避免他以为「没选」等于「2 位固定」。
+ */
+export const AUTO_DIGITS_HINT = '自动：按字段含义最多保留对应位数，且不补尾随 0';
+
 /** 数字列按字段含义显示精度，分组小计与数据行共用。 */
 export function formatNumericColumn(value: unknown, column: ReportColumn): string {
   if (isCodeColumn(column)) return String(value);
   const number = Number(value);
   if (!Number.isFinite(number)) return String(value);
-  const label = column.label;
-  // 计算列（表头 ƒx）默认「自动」：按实际值显示，最多 6 位小数、不补尾随 0
-  // —— 对齐飞书多维表格数字字段的默认行为；用户在表头面板显式选过位数则以下面为准。
-  if (column.readonly && column.format?.digits === undefined) {
-    return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 6 }).format(number);
-  }
-  let digits: number;
   // 表头格式面板里设过就以它为准（digits 0 = 只显示整数）；没设过才按字段含义猜。
-  if (column.format?.digits !== undefined) digits = column.format.digits;
-  else if (/数量|总数|件数|箱数|记录数|字节/.test(label)) digits = 0;
-  else if (/体积/.test(label)) digits = column.precision ?? 4;
-  else if (/重量|箱重|重\/kg/.test(label)) digits = column.precision ?? 3;
-  else if (column.precision !== undefined) digits = column.precision;
-  else if (/汇率/.test(label)) digits = 4;
-  else if (column.decimal || column.prop.startsWith('calc') || /售价|价格|成本|费用|金额|到手|利润|货款|支付|回款|税额|倍数|密度/.test(label)) digits = 2;
-  else digits = 0;
-  digits = Math.min(Math.max(digits, 0), 6);
+  const digits = column.format?.digits !== undefined ? clampDigits(column.format.digits) : guessDigits(column);
+  // 计算列（表头 ƒx）默认「自动」：按字段含义定上限、**不补尾随 0**
+  // —— 对齐飞书多维表格数字字段的默认行为（100 显示 100 而不是 100.00，41.224261 显示 41.22）。
+  if (column.readonly && column.format?.digits === undefined) {
+    return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: digits }).format(number);
+  }
   return numericFormatter(digits).format(number);
 }
 

@@ -15,13 +15,16 @@
       <el-radio value="date">只显示年月日<em>2026-10-07</em></el-radio>
     </el-radio-group>
 
-    <el-radio-group v-else-if="kind === 'number'" class="format-options" :model-value="digits" @change="setDigits">
+    <p v-if="kind === 'number' && column?.readonly && modelValue?.digits === undefined" class="format-auto-hint">
+      当前：自动（按字段含义保留位数，不补尾随 0）
+    </p>
+    <el-radio-group v-if="kind === 'number'" class="format-options" :model-value="digits" @change="setDigits">
       <el-radio v-for="option in digitOptions" :key="option.value" :value="option.value">
         {{ option.label }}<em>{{ option.sample }}</em>
       </el-radio>
     </el-radio-group>
 
-    <p v-else class="format-hint">文本字段没有可选的显示格式。</p>
+    <p v-if="kind === 'text'" class="format-hint">文本字段没有可选的显示格式。</p>
 
     <div v-if="kind !== 'text' && hasFormat" class="format-footer">
       <el-button link type="primary" size="small" @click="reset">恢复默认</el-button>
@@ -53,7 +56,8 @@ const hasFormat = computed(() => {
  * 用户点它时值没变化 → change 不触发 → 看起来"选了却没生效"（报表页实测踩过）。
  */
 const dateMode = computed(() => props.modelValue?.date ?? '');
-const digits = computed(() => props.modelValue?.digits ?? props.column?.precision ?? 2);
+// 计算列没设过位数时**不预选**：它的实际显示是「自动」，选任何一项都会误标成已设置。
+const digits = computed(() => props.modelValue?.digits ?? (props.column?.readonly ? -1 : (props.column?.precision ?? 2)));
 
 const digitOptions = computed(() =>
   [0, 1, 2, 3, 4].map(value => ({
@@ -94,5 +98,6 @@ function reset() {
 .format-options :deep(.el-radio__label) { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
 .format-options em { font-style: normal; font-size: 12px; color: var(--el-text-color-secondary); font-variant-numeric: tabular-nums; }
 .format-hint { margin: 0; font-size: 12px; line-height: 1.6; color: var(--el-text-color-secondary); }
+.format-auto-hint { margin: 0 0 4px; font-size: 11px; color: var(--el-color-primary); }
 .format-footer { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--el-border-color-lighter); }
 </style>
