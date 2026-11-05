@@ -34,12 +34,16 @@
       </template>
 
       <p class="description">
-        参考 Ozon 网页后台首页的<b>订单 / 销售额动态</b>做成按天视角，数据全部来自已有表，不额外采集：
-        <b>订单数与销售额</b>取应计里「销售」组（<code>ozon_accruals</code>，当天结算的销售单据），
+        参考 Ozon 网页后台首页的<b>订单 / 销售额动态</b>做成按天视角，口径与首页一致 —— 都是
+        <b>下单口径</b>：订单数取 <code>/v3/posting/fbo/list</code> 的发货单条数（按下单时间转莫斯科时区切日），
+        销售额取 <code>/v1/analytics/data</code> 的下单金额，件数取发货单商品数量。
         <b>库存件数</b>取每天 17:00 那条链路下载的库存快照（<code>ozon_stock_daily</code>），
         <b>广告花费</b>取 <code>ozon_cpc_daily</code>，<b>退货</b>取 <code>ozon_returns</code> 的退货日期。
-        日期按 <b>莫斯科自然日</b>；应计当天还没结算完，所以默认区间到 <b>T-1</b> 为止。
         <b>客单价</b> = 销售额 ÷ 订单数，<b>ДРР</b> = 广告花费 ÷ 销售额。
+        <br />
+        ⚠️ 这里<b>不是</b>「1.订单费用明细」的应计数：应计要等订单送达才落账，会比首页晚 2~3 天
+        （实测 11-04 首页 330 单、应计只有 116 单），两者不要互相核对。
+        另外本店商品基本<b>一单一件</b>，所以「订单数」和「售出件数」经常完全一样，不是重复计算。
       </p>
       <p v-if="stockHint" class="hint">{{ stockHint }}</p>
 
@@ -52,7 +56,7 @@
             <div class="kpi-value" :class="k.tone">{{ k.value }}</div>
             <div class="kpi-foot">
               <span v-if="k.delta !== null" class="delta" :class="k.delta > 0 ? 'up' : k.delta < 0 ? 'down' : ''">
-                {{ k.delta > 0 ? '↑' : k.delta < 0 ? '↓' : '=' }} {{ Math.abs(k.delta).toFixed(1) }}%
+                {{ k.delta > 0 ? '↑' : k.delta < 0 ? '↓' : '=' }} {{ deltaText(k.delta) }}%
               </span>
               <span class="kpi-sub">{{ k.sub }}</span>
             </div>
@@ -113,9 +117,6 @@
           <el-table-column prop="gmv" label="销售额 ₽" width="120" align="right" sortable>
             <template #default="{ row }"><b>{{ money(row.gmv) }}</b></template>
           </el-table-column>
-          <el-table-column prop="revenue" label="销售收入 ₽" width="120" align="right" sortable>
-            <template #default="{ row }">{{ money(row.revenue) }}</template>
-          </el-table-column>
           <el-table-column prop="avgOrder" label="客单价 ₽" width="106" align="right" sortable>
             <template #default="{ row }">{{ money(row.avgOrder) }}</template>
           </el-table-column>
@@ -129,10 +130,10 @@
             <template #default="{ row }">{{ row.returns ? int(row.returns) : '—' }}</template>
           </el-table-column>
           <el-table-column prop="stockQty" label="可售库存" width="100" align="right" sortable>
-            <template #default="{ row }">{{ row.stockQty === null || row.stockQty === undefined ? '—' : int(row.stockQty) }}</template>
+            <template #default="{ row }">{{ n(row.stockQty) === null ? '—' : int(row.stockQty) }}</template>
           </el-table-column>
           <el-table-column prop="stockTotalQty" label="在仓+在途" width="104" align="right" sortable>
-            <template #default="{ row }">{{ row.stockTotalQty === null || row.stockTotalQty === undefined ? '—' : int(row.stockTotalQty) }}</template>
+            <template #default="{ row }">{{ n(row.stockTotalQty) === null ? '—' : int(row.stockTotalQty) }}</template>
           </el-table-column>
         </el-table>
         <el-empty v-if="!loading && !rows.length" description="没有符合条件的记录" :image-size="64" />
@@ -173,14 +174,33 @@ const stockDays = ref(0);
 
 const nf0 = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 0 });
 const nf2 = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const int = (v: number | null | undefined) => (v === null || v === undefined ? '—' : nf0.format(v));
-const money = (v: number | null | undefined) => (v === null || v === undefined ? '—' : nf2.format(v));
-const pct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${nf2.format(v)}%`);
 
-/** 环比：上一等长周期为 0 时不出百分比（避免「+∞%」）。 */
-function delta(cur?: number | null, before?: number | null): number | null {
-  if (cur === null || cur === undefined || before === null || before === undefined || before === 0) return null;
-  return ((cur - before) / before) * 100;
+/**
+ * 后端 BigDecimal 序列化成**字符串**（"0.00"），所以所有数值先统一转 Number 再算：
+ * 直接拿字符串做除法会得到 Infinity（"0.00" 转数字是 0），第一版就踩了这个坑。
+ */
+type Num = number | string | null | undefined;
+const n = (v: Num): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const x = Number(v);
+  return Number.isFinite(x) ? x : null;
+};
+const int = (v: Num) => { const x = n(v); return x === null ? '—' : nf0.format(x); };
+const money = (v: Num) => { const x = n(v); return x === null ? '—' : nf2.format(x); };
+const pct = (v: Num) => { const x = n(v); return x === null ? '—' : `${nf2.format(x)}%`; };
+
+/** 环比：上一等长周期为 0 或没有数据时不出百分比（避免「+∞%」）。 */
+function delta(cur: Num, before: Num): number | null {
+  const c = n(cur);
+  const b = n(before);
+  if (c === null || b === null || b === 0) return null;
+  return ((c - b) / b) * 100;
+}
+
+/** 涨跌幅可能几千%（新店上期基数极小），超过 999% 就只标「>999%」，别让卡片变成一串天文数字。 */
+function deltaText(value: number): string {
+  const abs = Math.abs(value);
+  return abs > 999 ? '>999' : abs.toFixed(1);
 }
 
 const kpis = computed(() => {
@@ -188,14 +208,14 @@ const kpis = computed(() => {
   const p = prev.value;
   return [
     { label: '订单数', value: s ? int(s.orders) : '—', tone: 'tone-orders', delta: delta(s?.orders, p?.orders), sub: '比上一周期' },
-    { label: '销售额', value: s ? `${money(s.gmv)} ₽` : '—', tone: 'tone-gmv', delta: delta(s?.gmv, p?.gmv), sub: '比上一周期' },
-    { label: '售出件数', value: s ? int(s.units) : '—', tone: '', delta: delta(s?.units, p?.units), sub: '比上一周期' },
+    { label: '销售额', value: s ? `${money(s.gmv)} ₽` : '—', tone: 'tone-gmv', delta: delta(s?.gmv, p?.gmv), sub: '下单金额 · 比上一周期' },
+    { label: '售出件数', value: s ? int(s.units) : '—', tone: '', delta: delta(s?.units, p?.units), sub: '发货单件数 · 比上一周期' },
     { label: '平均客单价', value: s ? `${money(s.avgOrder)} ₽` : '—', tone: '', delta: delta(s?.avgOrder, p?.avgOrder), sub: '销售额 ÷ 订单数' },
     {
       label: '可售库存',
-      value: s && s.stockQty !== null && s.stockQty !== undefined ? `${int(s.stockQty)} 件` : '—',
+      value: s && n(s.stockQty) !== null ? `${int(s.stockQty)} 件` : '—',
       tone: 'tone-stock',
-      delta: s?.stockDays !== null && s?.stockDays !== undefined && p?.stockDays ? delta(s.stockDays, p.stockDays) : null,
+      delta: delta(s?.stockDays, p?.stockDays),
       sub: s?.stockDate ? `${String(s.stockDate).slice(5)} 快照 · 可卖 ${s.stockDays ?? '—'} 天` : '暂无库存快照'
     },
     {
@@ -203,7 +223,7 @@ const kpis = computed(() => {
       value: s ? `${money(s.cpcSpent)} ₽` : '—',
       tone: 'tone-cpc',
       delta: delta(s?.cpcSpent, p?.cpcSpent),
-      sub: s?.drr !== null && s?.drr !== undefined ? `ДРР ${pct(s.drr)}` : 'ДРР —'
+      sub: n(s?.drr) === null ? 'ДРР —' : `ДРР ${pct(s.drr)}`
     }
   ];
 });
@@ -235,9 +255,6 @@ function filledRows(): OzonOrderTrendRow[] {
       orders: 0,
       units: 0,
       gmv: 0,
-      revenue: 0,
-      discountPoints: 0,
-      partner: 0,
       avgOrder: null,
       stockQty: null,
       stockTotalQty: null,
@@ -292,7 +309,7 @@ function renderMainChart() {
         yAxisIndex: 0,
         barMaxWidth: 22,
         itemStyle: { color: '#5b8ff9', borderRadius: [3, 3, 0, 0] },
-        data: list.map(r => Number(r.orders || 0))
+        data: list.map(r => n(r.orders) ?? 0)
       },
       {
         name: '销售额 ₽',
@@ -303,7 +320,7 @@ function renderMainChart() {
         lineStyle: { width: 2 },
         itemStyle: { color: '#f2a15a' },
         areaStyle: { opacity: 0.08 },
-        data: list.map(r => Number(r.gmv || 0))
+        data: list.map(r => n(r.gmv) ?? 0)
       }
     ]
   }, true);
@@ -322,8 +339,8 @@ function renderStockChart() {
         const items = params as { dataIndex: number }[];
         if (!items || !items.length) return '';
         const r = list[items[0].dataIndex];
-        const stock = r.stockQty === null || r.stockQty === undefined ? '—' : `${int(r.stockQty)} 件`;
-        const total = r.stockTotalQty === null || r.stockTotalQty === undefined ? '—' : `${int(r.stockTotalQty)} 件`;
+        const stock = n(r.stockQty) === null ? '—' : `${int(r.stockQty)} 件`;
+        const total = n(r.stockTotalQty) === null ? '—' : `${int(r.stockTotalQty)} 件`;
         return `<div style="font-weight:600;margin-bottom:4px">${r.statDate}</div>`
           + tooltipLine('可售库存', stock)
           + tooltipLine('在仓+在途', total)
@@ -348,7 +365,7 @@ function renderStockChart() {
         connectNulls: false,
         itemStyle: { color: '#5ad8a6' },
         areaStyle: { opacity: 0.16 },
-        data: list.map(r => (r.stockQty === null || r.stockQty === undefined ? null : Number(r.stockQty)))
+        data: list.map(r => n(r.stockQty))
       },
       {
         name: '售出件数',
@@ -358,7 +375,7 @@ function renderStockChart() {
         symbolSize: 5,
         lineStyle: { width: 2, type: 'dashed' },
         itemStyle: { color: '#5b8ff9' },
-        data: list.map(r => Number(r.units || 0))
+        data: list.map(r => n(r.units) ?? 0)
       }
     ]
   }, true);
@@ -416,14 +433,14 @@ function summaryMethod({ columns, data }: { columns: { property?: string }[]; da
     if (prop === 'stockQty') return latest?.stockQty === null || latest?.stockQty === undefined ? '—' : int(latest.stockQty);
     if (prop === 'stockTotalQty') return latest?.stockTotalQty === null || latest?.stockTotalQty === undefined ? '—' : int(latest.stockTotalQty);
     if (prop === 'avgOrder' || prop === 'drr') {
-      const numerator = prop === 'drr' ? data.reduce((s, r) => s + Number(r.cpcSpent || 0), 0) : data.reduce((s, r) => s + Number(r.gmv || 0), 0);
-      const denominator = prop === 'drr' ? data.reduce((s, r) => s + Number(r.gmv || 0), 0) : data.reduce((s, r) => s + Number(r.orders || 0), 0);
+      const numerator = data.reduce((sum, r) => sum + (n(prop === 'drr' ? r.cpcSpent : r.gmv) ?? 0), 0);
+      const denominator = data.reduce((sum, r) => sum + (n(prop === 'drr' ? r.gmv : r.orders) ?? 0), 0);
       if (!denominator) return '—';
       const value = (numerator / denominator) * (prop === 'drr' ? 100 : 1);
       return prop === 'drr' ? pct(value) : money(value);
     }
-    const sum = data.reduce((s, r) => s + Number((r as unknown as Record<string, number>)[prop] || 0), 0);
-    return ['gmv', 'revenue', 'cpcSpent'].includes(prop) ? money(sum) : int(sum);
+    const sum = data.reduce((acc, r) => acc + (n((r as unknown as Record<string, Num>)[prop]) ?? 0), 0);
+    return ['gmv', 'cpcSpent'].includes(prop) ? money(sum) : int(sum);
   });
 }
 
