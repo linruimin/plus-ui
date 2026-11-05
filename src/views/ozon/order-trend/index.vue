@@ -44,6 +44,7 @@
         ⚠️ 这里<b>不是</b>「1.订单费用明细」的应计数：应计要等订单送达才落账，会比首页晚 2~3 天
         （实测 11-04 首页 330 单、应计只有 116 单），两者不要互相核对。
         另外本店商品基本<b>一单一件</b>，所以「订单数」和「售出件数」经常完全一样，不是重复计算。
+        下方明细表<b>点日期行最前面的箭头可展开</b>，看这一天具体卖了哪些商品。
       </p>
       <p v-if="stockHint" class="hint">{{ stockHint }}</p>
 
@@ -103,10 +104,45 @@
           class="trend-grid"
           size="small"
           border
+          row-key="statDate"
           :default-sort="{ prop: 'statDate', order: 'descending' }"
           show-summary
           :summary-method="summaryMethod"
+          @expand-change="onExpandChange"
         >
+          <el-table-column type="expand" width="34">
+            <template #default="{ row }">
+              <div class="expand-wrap">
+                <div v-if="skuLoading[row.statDate]" class="expand-loading">加载中…</div>
+                <template v-else>
+                  <el-table :data="skuByDate[row.statDate] || []" size="small" class="sku-grid" max-height="320">
+                    <el-table-column type="index" label="#" width="38" align="center" />
+                    <el-table-column label="商品" min-width="220" show-overflow-tooltip>
+                      <template #default="p">
+                        <div class="product-cell">
+                          <span class="product-name">{{ p.row.productName || p.row.sellerSku }}</span>
+                          <span class="product-sku">{{ p.row.sellerSku }}</span>
+                        </div>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="件数" width="72" align="right">
+                      <template #default="p">{{ int(p.row.units) }}</template>
+                    </el-table-column>
+                    <el-table-column label="金额 ₽" width="104" align="right">
+                      <template #default="p">{{ money(p.row.gmv) }}</template>
+                    </el-table-column>
+                    <el-table-column label="件单价 ₽" width="104" align="right">
+                      <template #default="p">{{ money(p.row.avgPrice) }}</template>
+                    </el-table-column>
+                    <el-table-column label="占当日" width="92" align="right">
+                      <template #default="p">{{ share(p.row, row) }}</template>
+                    </el-table-column>
+                  </el-table>
+                  <div v-if="!(skuByDate[row.statDate] || []).length" class="expand-loading">这一天没有单品明细</div>
+                </template>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column prop="statDate" label="日期" width="112" sortable />
           <el-table-column prop="orders" label="订单数" width="90" align="right" sortable>
             <template #default="{ row }">{{ int(row.orders) }}</template>
@@ -148,7 +184,7 @@ import * as echarts from 'echarts/core';
 import { BarChart, LineChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent, LegendComponent, AriaComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { getOrderTrend, scopeOrderTrendQuery } from '@/api/ozon/order-trend';
+import { getOrderTrend, listDailySku, scopeOrderTrendQuery } from '@/api/ozon/order-trend';
 import type { OzonOrderTrendProduct, OzonOrderTrendRow, OzonOrderTrendSummary } from '@/api/ozon/order-trend/types';
 import { useOzonShopStore } from '@/store/modules/ozonShop';
 
@@ -265,6 +301,35 @@ function filledRows(): OzonOrderTrendRow[] {
     });
   }
   return out;
+}
+
+/** 展开行：一天按 SKU 的明细，点开才拉（懒加载，避免一次取 30 天 × 20 SKU）。 */
+const skuByDate = ref<Record<string, OzonOrderTrendProduct[]>>({});
+const skuLoading = ref<Record<string, boolean>>({});
+
+async function onExpandChange(row: OzonOrderTrendRow, expanded: OzonOrderTrendRow[]) {
+  const opened = expanded.some(r => r.statDate === row.statDate);
+  if (!opened || skuByDate.value[row.statDate] || skuLoading.value[row.statDate]) return;
+  skuLoading.value = { ...skuLoading.value, [row.statDate]: true };
+  try {
+    const res = await listDailySku(scopeOrderTrendQuery({
+      scopeShopId: shopStore.scopedShopId,
+      dateFrom: row.statDate,
+      dateTo: row.statDate
+    }));
+    skuByDate.value = { ...skuByDate.value, [row.statDate]: res.data || [] };
+  } catch {
+    skuByDate.value = { ...skuByDate.value, [row.statDate]: [] };
+  } finally {
+    skuLoading.value = { ...skuLoading.value, [row.statDate]: false };
+  }
+}
+
+/** 该单品件数占当天比例。 */
+function share(product: OzonOrderTrendProduct, day: OzonOrderTrendRow) {
+  const total = n(day.units) ?? 0;
+  if (!total) return '—';
+  return `${(((n(product.units) ?? 0) / total) * 100).toFixed(1)}%`;
 }
 
 let mainChart: echarts.ECharts | undefined;
@@ -403,6 +468,8 @@ async function load() {
     rows.value = data?.rows || [];
     topProducts.value = data?.topProducts || [];
     stockDays.value = data?.stockDays || 0;
+    skuByDate.value = {};
+    skuLoading.value = {};
     await nextTick();
     renderCharts();
   } catch (e) {
@@ -425,8 +492,7 @@ function applyQuick(v: string) {
 /** 合计行：库存是存量不能相加，取最后一天（表格已按日期倒序，第一行就是最新）。 */
 function summaryMethod({ columns, data }: { columns: { property?: string }[]; data: OzonOrderTrendRow[] }) {
   const latest = data[0];
-  return columns.map((col, index) => {
-    if (index === 0) return '合计';
+  return columns.map((col) => {
     const prop = col.property;
     if (!prop) return '';
     if (prop === 'statDate') return '合计';
@@ -518,6 +584,9 @@ onBeforeUnmount(() => {
 .stock-chart { width: 100%; height: 240px; }
 .chart-empty { padding: 8px 0; font-size: 12px; color: var(--el-text-color-placeholder); text-align: center; }
 .trend-grid { width: 100%; }
+.expand-wrap { padding: 4px 12px 10px 12px; background: var(--el-fill-color-lighter); }
+.expand-loading { padding: 6px 0; font-size: 12px; color: var(--el-text-color-secondary); }
+.sku-grid :deep(.el-table__cell) { padding: 1px 0; }
 .top-grid { width: 100%; }
 .product-cell { display: flex; flex-direction: column; line-height: 16px; min-width: 0; }
 .product-name { font-size: 12px; color: #1f2329; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
