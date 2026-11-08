@@ -153,7 +153,7 @@
         "required": false,
         "multiple": true
       }
-     ],
+    ],
     "columns": [
       {
         "prop": "id",
@@ -369,42 +369,6 @@
         "prop": "calc3",
         "label": "后台售价总值",
         "sql": "v.`后台售价总值`",
-        "width": 160,
-        "numeric": true,
-        "type": "number",
-        "readonly": true
-      },
-      {
-        "prop": "calc4",
-        "label": "预计到手总值",
-        "sql": "v.`预计到手总值`",
-        "width": 160,
-        "numeric": true,
-        "type": "number",
-        "readonly": true
-      },
-      {
-        "prop": "calc5",
-        "label": "预计到手人民币",
-        "sql": "v.`预计到手人民币`",
-        "width": 160,
-        "numeric": true,
-        "type": "number",
-        "readonly": true
-      },
-      {
-        "prop": "calc6",
-        "label": "预计利润",
-        "sql": "v.`预计利润`",
-        "width": 160,
-        "numeric": true,
-        "type": "number",
-        "readonly": true
-      },
-      {
-        "prop": "calc7",
-        "label": "预计倍数",
-        "sql": "v.`预计倍数`",
         "width": 160,
         "numeric": true,
         "type": "number",
@@ -1329,15 +1293,6 @@
         "readonly": true
       },
       {
-        "prop": "calc9",
-        "label": "预计到手人民币",
-        "sql": "v.`预计到手人民币`",
-        "width": 160,
-        "numeric": true,
-        "type": "number",
-        "readonly": true
-      },
-      {
         "prop": "calc10",
         "label": "单体积入仓送仓费用",
         "sql": "v.`单体积入仓送仓费用`",
@@ -1404,24 +1359,6 @@
         "prop": "calc17",
         "label": "总合计成本",
         "sql": "v.`总合计成本`",
-        "width": 160,
-        "numeric": true,
-        "type": "number",
-        "readonly": true
-      },
-      {
-        "prop": "calc18",
-        "label": "预计利润",
-        "sql": "v.`预计利润`",
-        "width": 160,
-        "numeric": true,
-        "type": "number",
-        "readonly": true
-      },
-      {
-        "prop": "calc19",
-        "label": "预计倍数",
-        "sql": "v.`预计倍数`",
         "width": 160,
         "numeric": true,
         "type": "number",
@@ -1569,7 +1506,7 @@
         "required": false,
         "multiple": true
       }
-     ],
+    ],
     "columns": [
       {
         "prop": "id",
@@ -1816,7 +1753,7 @@
         "required": false,
         "multiple": true
       }
-     ],
+    ],
     "columns": [
       {
         "prop": "id",
@@ -1991,7 +1928,7 @@
         "required": false,
         "multiple": true
       }
-     ],
+    ],
     "columns": [
       {
         "prop": "id",
@@ -2370,7 +2307,7 @@
         "required": false,
         "multiple": true
       }
-     ],
+    ],
     "columns": [
       {
         "prop": "id",
