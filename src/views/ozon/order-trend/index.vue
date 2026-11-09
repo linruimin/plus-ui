@@ -41,7 +41,7 @@
         <b>库存件数</b>取每天 17:00 那条链路下载的库存快照（<code>ozon_stock_daily</code>），
         <b>广告花费</b>取 <code>ozon_cpc_daily</code>，<b>退货</b>取 <code>ozon_returns</code> 的退货日期。
         <b>客单价</b> = 销售额 ÷ 订单数，<b>ДРР</b> = 广告花费 ÷ 销售额。
-        日期按 <b>莫斯科自然日</b>，<b>含今天</b>（和首页一致；每 3 小时同步一次，当天那行标「进行中」，数字会继续长）。
+        日期按 <b>莫斯科自然日</b>，<b>只到昨天（T-1）</b> —— 今天还没结束，取进来只会是个偏小的半天数，所以不显示。
         <br />
         <br />
         ⚠️ 首页的<b>历史金额会按当前售价重算</b>（改价后老日期跟着变），这里存的是<b>下单时的成交价</b>
@@ -150,12 +150,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="statDate" label="日期" width="132" sortable>
-            <template #default="{ row }">
-              <span>{{ row.statDate }}</span>
-              <el-tag v-if="row.statDate === todayMsk" size="small" type="warning" class="today-tag">进行中</el-tag>
-            </template>
-          </el-table-column>
+          <el-table-column prop="statDate" label="日期" width="112" sortable />
           <el-table-column prop="orders" label="订单数" width="90" align="right" sortable>
             <template #default="{ row }">{{ int(row.orders) }}</template>
           </el-table-column>
@@ -210,8 +205,8 @@ function mskDate(offsetDays = 0): string {
 
 const shopStore = useOzonShopStore();
 const quick = ref('14');
-// 首页默认就是「14 天且含今天」，这里保持一致，方便逐日对照
-const dateRange = ref<string[]>([mskDate(-13), mskDate(0)]);
+// 只看**完整的日子**：区间一律截止到昨天（莫斯科 T-1），今天的半天数据不展示
+const dateRange = ref<string[]>([mskDate(-14), mskDate(-1)]);
 
 const loading = ref(false);
 const error = ref('');
@@ -220,9 +215,6 @@ const prev = ref<OzonOrderTrendSummary | null>(null);
 const rows = ref<OzonOrderTrendRow[]>([]);
 const topProducts = ref<OzonOrderTrendProduct[]>([]);
 const stockDays = ref(0);
-
-/** 莫斯科今天：最后一行是「进行中」，数据没跑完但首页也是这么显示的。 */
-const todayMsk = mskDate(0);
 
 const nf0 = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 0 });
 const nf2 = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -497,11 +489,12 @@ async function load() {
 
 function applyQuick(v: string) {
   if (v === 'month') {
-    dateRange.value = [mskDate(0).slice(0, 8) + '01', mskDate(0)];
+    // 本月 1 号 ~ 昨天
+    dateRange.value = [mskDate(-1).slice(0, 8) + '01', mskDate(-1)];
   } else {
     const days = Number(v) || 14;
-    // 含今天：和网页后台首页一致（当天数据会继续长，同步每 3 小时一次）
-    dateRange.value = [mskDate(-(days - 1)), mskDate(0)];
+    // 只到昨天：今天还没结束，取进来只会是个偏小的半天数
+    dateRange.value = [mskDate(-days), mskDate(-1)];
   }
   load();
 }
@@ -604,7 +597,6 @@ onBeforeUnmount(() => {
 .expand-wrap { padding: 4px 12px 10px 12px; background: var(--el-fill-color-lighter); }
 .expand-loading { padding: 6px 0; font-size: 12px; color: var(--el-text-color-secondary); }
 .sku-grid :deep(.el-table__cell) { padding: 1px 0; }
-.today-tag { margin-left: 4px; height: 18px; padding: 0 5px; font-size: 11px; }
 .top-grid { width: 100%; }
 .product-cell { display: flex; flex-direction: column; line-height: 16px; min-width: 0; }
 .product-name { font-size: 12px; color: #1f2329; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
