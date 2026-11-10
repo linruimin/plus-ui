@@ -104,11 +104,22 @@
           </div>
         </div>
 
-        <div class="section-title">
-          各商品当前库存
-          <span v-if="stockDate" class="section-sub">快照 {{ stockDate }} · 可售 {{ int(stockAvailableTotal) }} 件 / 在仓 {{ int(stockTotalAll) }} 件</span>
+        <div class="section-title stock-title">
+          <span>
+            各商品当前库存
+            <span v-if="stockDate" class="section-sub">快照 {{ stockDate }} · 可售 {{ int(stockAvailableTotal) }} 件 / 在仓 {{ int(stockTotalAll) }} 件</span>
+          </span>
+          <el-switch v-model="showStockImage" size="small" active-text="产品图片" />
         </div>
-        <div ref="stockByProductElement" class="stock-by-product" :style="{ height: stockChartHeight + 'px' }" role="img" aria-label="各商品当前库存" />
+        <div class="chart-scroll">
+          <div
+            ref="stockByProductElement"
+            class="stock-by-product"
+            :style="{ height: stockChartHeight + 'px', minWidth: stockChartWidth + 'px' }"
+            role="img"
+            :aria-label="stockChartLabel"
+          />
+        </div>
         <div v-if="!loading && !stock.length" class="chart-empty">还没有库存快照</div>
 
         <div class="section-title">按天明细</div>
@@ -355,19 +366,61 @@ const stockDate = computed(() => {
 });
 const stockAvailableTotal = computed(() => stock.value.reduce((sum, s) => sum + (n(s.availableQty) ?? 0), 0));
 const stockTotalAll = computed(() => stock.value.reduce((sum, s) => sum + (n(s.totalQty) ?? 0), 0));
-const stockChartHeight = computed(() => Math.max(220, stock.value.length * 26 + 70));
+
+/** 图按在仓合计倒序，只画前 30 个（再多横坐标会挤成一堆）。 */
+const stockList = computed(() =>
+  [...stock.value].sort((a, b) => (n(b.totalQty) ?? 0) - (n(a.totalQty) ?? 0)).slice(0, 30)
+);
+/** 每个商品固定占 92px（与 0.0 汇总图表一致），放不下就横向滚动。 */
+const STOCK_SLOT = 92;
+const stockChartWidth = computed(() => Math.max(stockList.value.length * STOCK_SLOT, 320));
+const stockChartHeight = 360;
+const stockChartLabel = computed(
+  () => `各商品当前库存条形图，共 ${stockList.value.length} 个商品，可售 ${int(stockAvailableTotal.value)} 件、在仓 ${int(stockTotalAll.value)} 件`
+);
+
+/** 产品图片开关（与 0.0 汇总图表同一做法）。 */
+const showStockImage = ref(true);
 
 let stockByProduct: echarts.ECharts | undefined;
 const stockByProductElement = ref<HTMLElement>();
 
+/** 商品在横坐标上的名字：单店就是品名；「全部店铺」时补上店铺前缀，避免两店同款混在一起。 */
+function stockLabel(item: OzonStockItem) {
+  const base = item.productName || item.sellerSku;
+  if (shopStore.scopedShopId) return base;
+  const shop = shopStore.shops.find(s => String(s.id) === String(item.shopId));
+  // 店铺名形如「俄1 Восьмая звезда」，取第一段当简称
+  return shop ? `${base}·${String(shop.name || '').split(' ')[0]}` : base;
+}
+
+/** x 轴品名按固定字数折行，避免相邻商品的品名互相压字。 */
+function wrapStockName(name: string) {
+  const chars = Array.from(name);
+  const per = 5;
+  if (chars.length <= per) return name;
+  const lines: string[] = [];
+  for (let i = 0; i < chars.length; i += per) lines.push(chars.slice(i, i + per).join(''));
+  return lines.join('\n');
+}
+
 function renderStockByProduct() {
   if (!stockByProductElement.value) return;
-  const list = [...stock.value].sort((a, b) => (n(b.totalQty) ?? 0) - (n(a.totalQty) ?? 0)).slice(0, 30);
+  const list = stockList.value;
   if (!stockByProduct) stockByProduct = echarts.init(stockByProductElement.value);
-  const short = (v: string) => {
-    const t = String(v || '');
-    return t.length > 16 ? t.slice(0, 16) + '…' : t;
+  if (!list.length) {
+    stockByProduct.clear();
+    return;
+  }
+  // 每个商品一个富文本样式，用 backgroundColor.image 把货品图片画在 x 轴标签里（图在上、品名在下）
+  const images = list.map(r => (showStockImage.value ? String(r.imageUrl || '') : ''));
+  const rich: Record<string, Record<string, unknown>> = {
+    name: { fontSize: 10, lineHeight: 13, align: 'center', color: '#5c6672' }
   };
+  images.forEach((url, index) => {
+    if (url) rich['p' + index] = { width: 26, height: 26, borderRadius: 3, align: 'center', backgroundColor: { image: url } };
+  });
+
   stockByProduct.setOption({
     tooltip: {
       trigger: 'axis',
@@ -376,34 +429,41 @@ function renderStockByProduct() {
         const arr = params as { dataIndex: number }[];
         if (!arr || !arr.length) return '';
         const r = list[arr[0].dataIndex];
-        return `<div style="font-weight:600;margin-bottom:4px">${r.productName || r.sellerSku}</div>`
+        return `<div style="font-weight:600;margin-bottom:4px">${stockLabel(r)}</div>`
           + `<div style="color:#888;margin-bottom:4px">${r.sellerSku}</div>`
           + tooltipLine('可售', `${int(r.availableQty)} 件`)
           + tooltipLine('不可售/在途', `${int(r.otherQty)} 件`)
           + tooltipLine('在仓合计', `${int(r.totalQty)} 件`);
       }
     },
-    legend: { data: ['可售', '不可售/在途'], top: 0, right: 8, itemWidth: 10, itemHeight: 10 },
-    // 右侧留出「合计数」标签的位置，否则最长那根的标签会被裁掉
-    grid: { left: 8, right: 64, top: 28, bottom: 4, containLabel: true },
+    legend: { data: ['可售', '不可售/在途'], top: 0, itemWidth: 12, itemHeight: 8, textStyle: { fontSize: 11 } },
+    grid: { top: 34, left: 8, right: 12, bottom: 8, containLabel: true },
     xAxis: {
-      type: 'value',
-      splitLine: { lineStyle: { type: 'dashed' } },
-      max: (v: { max: number }) => Math.ceil((v.max || 0) * 1.06)
+      type: 'category',
+      data: list.map(r => wrapStockName(stockLabel(r))),
+      axisTick: { show: false },
+      axisLabel: {
+        interval: 0,
+        margin: 8,
+        color: '#5c6672',
+        formatter: (value: string, index: number) => (images[index] ? '{p' + index + '|}\n' : '') + '{name|' + value + '}',
+        rich
+      }
     },
     yAxis: {
-      type: 'category',
-      inverse: true,
-      data: list.map(r => short(r.productName || r.sellerSku)),
-      axisTick: { show: false },
-      axisLabel: { fontSize: 11 }
+      type: 'value',
+      name: '件数',
+      nameTextStyle: { fontSize: 11, color: '#8a9099' },
+      minInterval: 1,
+      splitLine: { lineStyle: { type: 'dashed' } },
+      axisLabel: { formatter: (value: number) => int(value) }
     },
     series: [
       {
         name: '可售',
         type: 'bar',
         stack: 'qty',
-        barMaxWidth: 16,
+        barMaxWidth: 26,
         itemStyle: { color: '#5b8ff9' },
         data: list.map(r => n(r.availableQty) ?? 0)
       },
@@ -411,13 +471,14 @@ function renderStockByProduct() {
         name: '不可售/在途',
         type: 'bar',
         stack: 'qty',
-        barMaxWidth: 16,
-        itemStyle: { color: '#dcdfe6', borderRadius: [0, 3, 3, 0] },
-        // 合计数直接标在柱子末端（灰色那段可能为 0，标在它身上就是整根的长度）
+        barMaxWidth: 26,
+        itemStyle: { color: '#dcdfe6', borderRadius: [3, 3, 0, 0] },
+        // 合计数标在整根柱子顶（这段在最上面，为 0 时标签正好落在可售段顶部）
         label: {
           show: true,
-          position: 'right',
-          fontSize: 11,
+          position: 'top',
+          distance: 3,
+          fontSize: 10,
           color: '#5c6672',
           formatter: (p: { dataIndex: number }) => int(list[p.dataIndex]?.totalQty)
         },
@@ -615,6 +676,7 @@ function summaryMethod({ columns, data }: { columns: { property?: string }[]; da
 
 /** 全局店铺切换（首页）后本页跟着重查。 */
 watch(() => shopStore.selectedId, () => load());
+watch(showStockImage, () => renderStockByProduct());
 watch(quick, (v) => applyQuick(v));
 
 function onResize() {
@@ -691,7 +753,9 @@ onBeforeUnmount(() => {
 .duo { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 12px; align-items: start; }
 .duo-main, .duo-side { min-width: 0; }
 .stock-chart { width: 100%; height: 240px; }
-.stock-by-product { width: 100%; min-height: 220px; }
+.chart-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; }
+.stock-by-product { width: 100%; }
+.stock-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .section-sub { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--el-text-color-secondary); }
 .chart-empty { padding: 8px 0; font-size: 12px; color: var(--el-text-color-placeholder); text-align: center; }
 .trend-grid { width: 100%; }
