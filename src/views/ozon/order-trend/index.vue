@@ -104,6 +104,13 @@
           </div>
         </div>
 
+        <div class="section-title">
+          各商品当前库存
+          <span v-if="stockDate" class="section-sub">快照 {{ stockDate }} · 可售 {{ int(stockAvailableTotal) }} 件 / 在仓 {{ int(stockTotalAll) }} 件</span>
+        </div>
+        <div ref="stockByProductElement" class="stock-by-product" :style="{ height: stockChartHeight + 'px' }" role="img" aria-label="各商品当前库存" />
+        <div v-if="!loading && !stock.length" class="chart-empty">还没有库存快照</div>
+
         <div class="section-title">按天明细</div>
         <el-table
           v-loading="loading"
@@ -191,8 +198,8 @@ import * as echarts from 'echarts/core';
 import { BarChart, LineChart } from 'echarts/charts';
 import { GridComponent, TooltipComponent, LegendComponent, AriaComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { getOrderTrend, listDailySku, scopeOrderTrendQuery } from '@/api/ozon/order-trend';
-import type { OzonOrderTrendProduct, OzonOrderTrendRow, OzonOrderTrendSummary } from '@/api/ozon/order-trend/types';
+import { getOrderTrend, getStock, listDailySku, scopeOrderTrendQuery } from '@/api/ozon/order-trend';
+import type { OzonOrderTrendProduct, OzonOrderTrendRow, OzonOrderTrendSummary, OzonStockItem } from '@/api/ozon/order-trend/types';
 import { useOzonShopStore } from '@/store/modules/ozonShop';
 
 echarts.use([BarChart, LineChart, GridComponent, TooltipComponent, LegendComponent, AriaComponent, CanvasRenderer]);
@@ -340,6 +347,82 @@ function share(product: OzonOrderTrendProduct, day: OzonOrderTrendRow) {
   return `${(((n(product.units) ?? 0) / total) * 100).toFixed(1)}%`;
 }
 
+/** 当前库存（按商品）：跟日期区间无关，始终是每店最新快照。 */
+const stock = ref<OzonStockItem[]>([]);
+const stockDate = computed(() => {
+  const dates = stock.value.map(s => String(s.statDate || '')).filter(Boolean).sort();
+  return dates.length ? dates[dates.length - 1] : '';
+});
+const stockAvailableTotal = computed(() => stock.value.reduce((sum, s) => sum + (n(s.availableQty) ?? 0), 0));
+const stockTotalAll = computed(() => stock.value.reduce((sum, s) => sum + (n(s.totalQty) ?? 0), 0));
+const stockChartHeight = computed(() => Math.max(220, stock.value.length * 26 + 70));
+
+let stockByProduct: echarts.ECharts | undefined;
+const stockByProductElement = ref<HTMLElement>();
+
+function renderStockByProduct() {
+  if (!stockByProductElement.value) return;
+  const list = [...stock.value].sort((a, b) => (n(b.totalQty) ?? 0) - (n(a.totalQty) ?? 0)).slice(0, 30);
+  if (!stockByProduct) stockByProduct = echarts.init(stockByProductElement.value);
+  const short = (v: string) => {
+    const t = String(v || '');
+    return t.length > 16 ? t.slice(0, 16) + '…' : t;
+  };
+  stockByProduct.setOption({
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: unknown) => {
+        const arr = params as { dataIndex: number }[];
+        if (!arr || !arr.length) return '';
+        const r = list[arr[0].dataIndex];
+        return `<div style="font-weight:600;margin-bottom:4px">${r.productName || r.sellerSku}</div>`
+          + `<div style="color:#888;margin-bottom:4px">${r.sellerSku}</div>`
+          + tooltipLine('可售', `${int(r.availableQty)} 件`)
+          + tooltipLine('不可售/在途', `${int(r.otherQty)} 件`)
+          + tooltipLine('在仓合计', `${int(r.totalQty)} 件`);
+      }
+    },
+    legend: { data: ['可售', '不可售/在途'], top: 0, right: 8, itemWidth: 10, itemHeight: 10 },
+    grid: { left: 8, right: 24, top: 28, bottom: 4, containLabel: true },
+    xAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed' } } },
+    yAxis: {
+      type: 'category',
+      inverse: true,
+      data: list.map(r => short(r.productName || r.sellerSku)),
+      axisTick: { show: false },
+      axisLabel: { fontSize: 11 }
+    },
+    series: [
+      {
+        name: '可售',
+        type: 'bar',
+        stack: 'qty',
+        barMaxWidth: 16,
+        itemStyle: { color: '#5b8ff9' },
+        data: list.map(r => n(r.availableQty) ?? 0)
+      },
+      {
+        name: '不可售/在途',
+        type: 'bar',
+        stack: 'qty',
+        barMaxWidth: 16,
+        itemStyle: { color: '#dcdfe6', borderRadius: [0, 3, 3, 0] },
+        // 合计数直接标在柱子末端（灰色那段可能为 0，标在它身上就是整根的长度）
+        label: {
+          show: true,
+          position: 'right',
+          fontSize: 11,
+          color: '#5c6672',
+          formatter: (p: { dataIndex: number }) => int(list[p.dataIndex]?.totalQty)
+        },
+        data: list.map(r => n(r.otherQty) ?? 0)
+      }
+    ]
+  }, true);
+  stockByProduct.resize();
+}
+
 let mainChart: echarts.ECharts | undefined;
 let stockChart: echarts.ECharts | undefined;
 const mainChartElement = ref<HTMLElement>();
@@ -458,12 +541,16 @@ function renderStockChart() {
 function renderCharts() {
   renderMainChart();
   renderStockChart();
+  renderStockByProduct();
 }
 
 async function load() {
   loading.value = true;
   error.value = '';
   try {
+    const stockPromise = getStock(scopeOrderTrendQuery({ scopeShopId: shopStore.scopedShopId }))
+      .then(r2 => { stock.value = r2.data || []; })
+      .catch(() => { stock.value = []; });
     const res = await getOrderTrend(scopeOrderTrendQuery({
       scopeShopId: shopStore.scopedShopId,
       dateFrom: dateRange.value?.[0],
@@ -478,8 +565,9 @@ async function load() {
     stockDays.value = data?.stockDays || 0;
     skuByDate.value = {};
     skuLoading.value = {};
+    await stockPromise;
     await nextTick();
-    renderCharts();
+    renderCharts();   // 里面已包含 renderStockByProduct()
   } catch (e) {
     error.value = e instanceof Error ? e.message : '订单趋势加载失败';
   } finally {
@@ -527,6 +615,7 @@ watch(quick, (v) => applyQuick(v));
 function onResize() {
   mainChart?.resize();
   stockChart?.resize();
+  stockByProduct?.resize();
 }
 
 onMounted(async () => {
@@ -541,20 +630,25 @@ onActivated(() => {
   nextTick(() => {
     mainChart?.resize();
     stockChart?.resize();
+    stockByProduct?.resize();
   });
 });
 onDeactivated(() => {
   mainChart?.dispose();
   stockChart?.dispose();
+  stockByProduct?.dispose();
   mainChart = undefined;
   stockChart = undefined;
+  stockByProduct = undefined;
 });
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize);
   mainChart?.dispose();
   stockChart?.dispose();
+  stockByProduct?.dispose();
   mainChart = undefined;
   stockChart = undefined;
+  stockByProduct = undefined;
 });
 </script>
 
@@ -592,6 +686,8 @@ onBeforeUnmount(() => {
 .duo { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 12px; align-items: start; }
 .duo-main, .duo-side { min-width: 0; }
 .stock-chart { width: 100%; height: 240px; }
+.stock-by-product { width: 100%; min-height: 220px; }
+.section-sub { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--el-text-color-secondary); }
 .chart-empty { padding: 8px 0; font-size: 12px; color: var(--el-text-color-placeholder); text-align: center; }
 .trend-grid { width: 100%; }
 .expand-wrap { padding: 4px 12px 10px 12px; background: var(--el-fill-color-lighter); }
