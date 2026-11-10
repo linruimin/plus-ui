@@ -384,8 +384,13 @@ function renderStockByProduct() {
       }
     },
     legend: { data: ['可售', '不可售/在途'], top: 0, right: 8, itemWidth: 10, itemHeight: 10 },
-    grid: { left: 8, right: 24, top: 28, bottom: 4, containLabel: true },
-    xAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed' } } },
+    // 右侧留出「合计数」标签的位置，否则最长那根的标签会被裁掉
+    grid: { left: 8, right: 64, top: 28, bottom: 4, containLabel: true },
+    xAxis: {
+      type: 'value',
+      splitLine: { lineStyle: { type: 'dashed' } },
+      max: (v: { max: number }) => Math.ceil((v.max || 0) * 1.06)
+    },
     yAxis: {
       type: 'category',
       inverse: true,
