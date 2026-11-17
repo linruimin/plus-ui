@@ -29,7 +29,7 @@
           placeholder="例：{每包成本} + {单个打包费用} + {单个取货送仓费用}"
         />
         <div class="format-formula-insert">
-          <el-select size="small" placeholder="插入字段" filterable :model-value="''" @change="insertField">
+          <el-select size="small" :teleported="false" placeholder="插入字段" filterable :model-value="''" @change="insertField">
             <el-option v-for="name in fieldOptions" :key="name" :label="name" :value="name" />
           </el-select>
           <span class="format-formula-tip">可用 + − × ÷ ( ) round/min/max/if</span>
@@ -50,7 +50,7 @@
 
     <div v-if="kind === 'number'" class="format-digits">
       <span class="format-digits-label">小数位数</span>
-      <el-select :model-value="digits" size="small" class="format-digits-select" @change="setDigits">
+      <el-select :model-value="digits" :teleported="false" size="small" class="format-digits-select" @change="setDigits">
         <el-option label="自动" :value="-1" />
         <el-option v-for="n in 7" :key="n" :label="`${n - 1} 位小数`" :value="n - 1" />
       </el-select>

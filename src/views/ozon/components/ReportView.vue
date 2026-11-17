@@ -14,10 +14,10 @@
               <template #reference><el-button icon="Filter" :type="hasFilters ? 'primary' : 'default'" plain>筛选</el-button></template>
               <div class="report-panel">
                 <h3>{{ title }}</h3><p class="panel-description">{{ description }}</p>
-                <el-form-item v-if="kind === 'supply'" label="申请状态"><el-select v-model="query.status" clearable placeholder="全部状态"><el-option label="全部状态" value=""/><el-option v-for="item in supplyStatuses" :key="item" :label="item" :value="item"/></el-select></el-form-item>
+                <el-form-item v-if="kind === 'supply'" label="申请状态"><el-select v-model="query.status" :teleported="false" clearable placeholder="全部状态"><el-option label="全部状态" value=""/><el-option v-for="item in supplyStatuses" :key="item" :label="item" :value="item"/></el-select></el-form-item>
       <el-form :model="query" label-position="top" class="panel-filters" @submit.prevent="applyFilters">
         <el-form-item v-if="kind === 'monthly' || kind === 'returns-report'" :label="kind === 'returns-report' ? '退货月份' : '统计月份'">
-          <el-date-picker v-model="query.reportMonth" type="month" value-format="YYYY-MM-01" placeholder="全部月份" clearable />
+          <el-date-picker v-model="query.reportMonth" :teleported="false" type="month" value-format="YYYY-MM-01" placeholder="全部月份" clearable />
         </el-form-item>
         <template v-if="kind !== 'accruals'">
           <el-form-item :label="kind === 'supply' ? 'ItemCode' : kind === 'returns-report' ? '货号' : '卖家SKU'"><el-input v-model="query.sellerSku" placeholder="精确匹配" maxlength="255" clearable @keyup.enter="handleQuery" /></el-form-item>
@@ -26,7 +26,7 @@
         </template>
         <template v-if="kind === 'accruals'">
           <el-form-item label="应计费用编号"><el-input v-model="query.accrualId" maxlength="32" clearable @keyup.enter="handleQuery" /></el-form-item>
-          <el-form-item label="最近应计日期"><el-date-picker v-model="dateRange" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期" clearable /></el-form-item>
+          <el-form-item label="最近应计日期"><el-date-picker v-model="dateRange" :teleported="false" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期" clearable /></el-form-item>
         </template>
         <el-form-item v-if="kind === 'supply'" label="申请编号"><el-input v-model="query.applicationNo" maxlength="64" clearable @keyup.enter="handleQuery" /></el-form-item>
         <el-form-item>
@@ -641,7 +641,7 @@ onBeforeUnmount(() => {
 .table-viewport { position: relative; }
 .table-error { position: absolute; top: 0; left: 0; width: 100%; z-index: 5; }
 .table-footer :deep(.pagination-container) { margin-top: 0; padding-top: 4px; min-height: 34px; }
-.report-panel { max-height: min(70vh, 650px); overflow-y: auto; }
+.report-panel { max-height: none; }/* 同 BusinessView：下拉在弹层内部渲染，容器不能 overflow 裁切 */
 .report-panel h3 { margin: 0 0 10px; font-size: 15px; }
 .panel-description { color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.6; margin: 8px 0 14px; }
 .panel-filters :deep(.el-form-item) { margin-bottom: 12px; }
