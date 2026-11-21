@@ -220,14 +220,11 @@ service.interceptors.response.use(
 						useUserStore()
 							.logout()
 							.then(() => {
-								router.replace({
-									path: "/login",
-									query: {
-										redirect: encodeURIComponent(
-											router.currentRoute.value.fullPath || "/",
-										),
-									},
-								});
+								// 整页跳转：SPA 内跳转会复用内存里的旧登录组件，改版后仍看到旧页面；
+								// redirect 用 URLSearchParams 只编码一次（原写法会被 vue-router 二次编码成 %252F）
+								const loginUrl = new URL("/login", window.location.origin);
+								loginUrl.searchParams.set("redirect", router.currentRoute.value.fullPath || "/");
+								window.location.href = loginUrl.href;
 							});
 					})
 					.catch(() => {

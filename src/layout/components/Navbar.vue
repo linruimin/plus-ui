@@ -137,14 +137,16 @@ const logout = async () => {
     cancelButtonText: '取消',
     type: 'warning'
   } as ElMessageBoxOptions);
+  // 记下当前页面，登录后能跳回来（整页跳转会丢失 SPA 状态，所以先取出来）
+  const current = router.currentRoute.value.fullPath || '/';
   userStore.logout().then(() => {
-    router.replace({
-      path: '/login',
-      query: {
-        redirect: encodeURIComponent(router.currentRoute.value.fullPath || '/')
-      }
-    });
     tab.closeAllPage();
+    // 🚨 用整页跳转而不是 router.replace：
+    //    SPA 内跳转复用内存里已加载的 login 组件，前端改版后（如登录页改版）退出仍会看到旧界面。
+    //    整页跳转会重新请求 index.html（nginx 已对 index.html 设 no-cache），保证拿到最新产物。
+    const url = new URL('/login', window.location.origin);
+    url.searchParams.set('redirect', current);   // 只编码一次，避免 %252F
+    window.location.href = url.href;
   });
 };
 

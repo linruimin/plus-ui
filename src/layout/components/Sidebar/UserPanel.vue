@@ -70,14 +70,16 @@ const logout = async () => {
     cancelButtonText: '取消',
     type: 'warning'
   } as ElMessageBoxOptions);
+  const current = router.currentRoute.value.fullPath || '/';
   userStore.logout().then(() => {
-    router.replace({
-      path: '/login',
-      query: {
-        redirect: encodeURIComponent(router.currentRoute.value.fullPath || '/')
-      }
-    });
     tab.closeAllPage();
+    // 🚨 整页跳转而不是 router.replace：SPA 内跳转复用内存里已加载的 login 组件，
+    //    前端改版后退出仍会看到旧登录页。整页跳转会重新拉 index.html（nginx 已设 no-cache）。
+    // 🚨 用 URLSearchParams 拼 redirect（只编码一次）：原来 query 里塞 encodeURIComponent 的结果，
+    //    vue-router 会再编码一遍 → %252F，登录页解一次仍是编码态，跳转失效。
+    const url = new URL('/login', window.location.origin);
+    url.searchParams.set('redirect', current);
+    window.location.href = url.href;
   });
 };
 
